@@ -1,78 +1,87 @@
-const META_API = 'https://graph.facebook.com/v21.0';
+// New Instagram API with Instagram Login (2024+)
+// Docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login
+
+const IG_API = 'https://graph.instagram.com';
 const META_APP_ID = process.env.META_APP_ID!;
 const META_APP_SECRET = process.env.META_APP_SECRET!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-export function getOAuthUrl(contaId: string | number): string {
+export function getOAuthUrl(state: string | number): string {
   const redirectUri = `${APP_URL}/api/instagram/callback`;
   const scopes = [
-    'instagram_basic',
-    'instagram_manage_insights',
-    'pages_show_list',
-    'pages_read_engagement',
+    'instagram_business_basic',
+    'instagram_business_manage_insights',
   ].join(',');
 
-  return `https://www.facebook.com/v21.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${contaId}`;
+  return `https://www.instagram.com/oauth/authorize?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${state}`;
 }
 
-export async function exchangeCodeForToken(code: string): Promise<{ access_token: string; expires_in: number }> {
+export async function exchangeCodeForToken(code: string): Promise<{ access_token: string; user_id: string }> {
   const redirectUri = `${APP_URL}/api/instagram/callback`;
-  const url = `${META_API}/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`;
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to exchange code for token');
+  const res = await fetch('https://api.instagram.com/oauth/access_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: META_APP_ID,
+      client_secret: META_APP_SECRET,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to exchange code: ${err}`);
+  }
   return res.json();
 }
 
 export async function getLongLivedToken(shortToken: string): Promise<{ access_token: string; expires_in: number }> {
-  const url = `${META_API}/oauth/access_token?grant_type=fb_exchange_token&client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&fb_exchange_token=${shortToken}`;
+  const url = `${IG_API}/access_token?grant_type=ig_exchange_token&client_secret=${META_APP_SECRET}&access_token=${shortToken}`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to get long-lived token');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to get long-lived token: ${err}`);
+  }
   return res.json();
 }
 
 export async function refreshLongLivedToken(token: string): Promise<{ access_token: string; expires_in: number }> {
-  const url = `${META_API}/oauth/access_token?grant_type=fb_exchange_token&client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&fb_exchange_token=${token}`;
+  const url = `${IG_API}/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to refresh token');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to refresh token: ${err}`);
+  }
   return res.json();
 }
 
-export async function getInstagramAccount(accessToken: string): Promise<{ ig_user_id: string; name: string; username: string; profile_picture_url: string; followers_count: number }> {
-  // Get Facebook Pages
-  const pagesRes = await fetch(`${META_API}/me/accounts?access_token=${accessToken}`);
-  if (!pagesRes.ok) throw new Error('Failed to get pages');
-  const pagesData = await pagesRes.json();
+export async function getInstagramProfile(accessToken: string): Promise<{
+  ig_user_id: string;
+  name: string;
+  username: string;
+  profile_picture_url: string;
+  followers_count: number;
+}> {
+  const fields = 'user_id,username,name,profile_picture_url,followers_count';
+  const res = await fetch(`${IG_API}/v21.0/me?fields=${fields}&access_token=${accessToken}`);
 
-  if (!pagesData.data || pagesData.data.length === 0) {
-    throw new Error('Nenhuma pagina do Facebook encontrada. Conecte uma pagina ao seu Instagram Business.');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to get profile: ${err}`);
   }
 
-  // Get Instagram Business Account from the first page
-  const pageId = pagesData.data[0].id;
-  const igRes = await fetch(`${META_API}/${pageId}?fields=instagram_business_account&access_token=${accessToken}`);
-  if (!igRes.ok) throw new Error('Failed to get Instagram account');
-  const igData = await igRes.json();
-
-  if (!igData.instagram_business_account) {
-    throw new Error('Nenhuma conta Instagram Business conectada a esta pagina do Facebook.');
-  }
-
-  const igUserId = igData.instagram_business_account.id;
-
-  // Get Instagram profile info
-  const profileRes = await fetch(`${META_API}/${igUserId}?fields=name,username,profile_picture_url,followers_count&access_token=${accessToken}`);
-  if (!profileRes.ok) throw new Error('Failed to get Instagram profile');
-  const profile = await profileRes.json();
-
+  const data = await res.json();
   return {
-    ig_user_id: igUserId,
-    name: profile.name || profile.username,
-    username: profile.username,
-    profile_picture_url: profile.profile_picture_url || '',
-    followers_count: profile.followers_count || 0,
+    ig_user_id: String(data.user_id || data.id),
+    name: data.name || data.username,
+    username: data.username,
+    profile_picture_url: data.profile_picture_url || '',
+    followers_count: data.followers_count || 0,
   };
 }
 
@@ -93,7 +102,6 @@ interface IGInsights {
   reach?: number;
   shares?: number;
   plays?: number;
-  video_views?: number;
 }
 
 export interface SyncedPost {
@@ -109,12 +117,15 @@ export interface SyncedPost {
   data_postagem: string;
 }
 
-export async function fetchInstagramMedia(igUserId: string, accessToken: string): Promise<SyncedPost[]> {
+export async function fetchInstagramMedia(accessToken: string): Promise<SyncedPost[]> {
   const mediaFields = 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count';
-  const url = `${META_API}/${igUserId}/media?fields=${mediaFields}&limit=50&access_token=${accessToken}`;
+  const url = `${IG_API}/v21.0/me/media?fields=${mediaFields}&limit=50&access_token=${accessToken}`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch media');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to fetch media: ${err}`);
+  }
   const data = await res.json();
 
   if (!data.data) return [];
@@ -131,7 +142,7 @@ export async function fetchInstagramMedia(igUserId: string, accessToken: string)
         : 'impressions,reach,shares';
 
       const insightsRes = await fetch(
-        `${META_API}/${media.id}/insights?metric=${metrics}&access_token=${accessToken}`
+        `${IG_API}/v21.0/${media.id}/insights?metric=${metrics}&access_token=${accessToken}`
       );
       if (insightsRes.ok) {
         const insightsData = await insightsRes.json();
