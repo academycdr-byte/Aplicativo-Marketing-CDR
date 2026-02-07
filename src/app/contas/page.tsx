@@ -173,22 +173,39 @@ export default function ContasSociaisPage() {
           <h1 className="text-3xl font-bold text-gray-900">Contas Sociais</h1>
           <p className="text-gray-500 mt-1">Conecte suas contas e sincronize automaticamente</p>
         </div>
-        <button
-          onClick={() => { setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 }); setModalOpen(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Conta
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { window.location.href = '/api/instagram/auth'; }}
+            className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90 transition-all shadow-sm"
+          >
+            <Instagram className="w-4 h-4" />
+            Conectar Instagram
+          </button>
+          <button
+            onClick={() => { setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 }); setModalOpen(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Conta Manual
+          </button>
+        </div>
       </div>
 
       {contas.length === 0 ? (
-        <EmptyState
-          icon={Share2}
-          title="Nenhuma conta conectada"
-          description="Adicione suas contas do Instagram e TikTok para sincronizar postagens automaticamente."
-          action={{ label: 'Adicionar Conta', onClick: () => setModalOpen(true) }}
-        />
+        <div className="text-center py-16">
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Instagram className="w-8 h-8 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma conta conectada</h3>
+          <p className="text-gray-500 mb-6 max-w-md mx-auto">Conecte seu Instagram para sincronizar postagens e metricas automaticamente.</p>
+          <button
+            onClick={() => { window.location.href = '/api/instagram/auth'; }}
+            className="inline-flex items-center gap-2 px-6 py-3 text-white font-medium rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90 transition-all shadow-md"
+          >
+            <Instagram className="w-5 h-5" />
+            Conectar Instagram
+          </button>
+        </div>
       ) : (
         <div className="space-y-8">
           {instagramContas.length > 0 && (
