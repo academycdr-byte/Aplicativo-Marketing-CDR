@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForToken, getLongLivedToken, getInstagramAccount } from '@/lib/instagram';
+import { exchangeCodeForToken, getLongLivedToken, getInstagramProfile } from '@/lib/instagram';
 import { prisma } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
@@ -13,27 +13,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Exchange code for short-lived token
+    // Exchange code for short-lived token (returns access_token + user_id)
     const shortToken = await exchangeCodeForToken(code);
 
     // Get long-lived token (60 days)
     const longToken = await getLongLivedToken(shortToken.access_token);
 
-    // Get Instagram Business Account info
-    const igAccount = await getInstagramAccount(longToken.access_token);
+    // Get Instagram profile info
+    const profile = await getInstagramProfile(longToken.access_token);
 
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + longToken.expires_in);
 
     const igData = {
-      ig_user_id: igAccount.ig_user_id,
+      ig_user_id: profile.ig_user_id,
       access_token: longToken.access_token,
       token_expires_at: expiresAt,
       auto_sync: true,
-      nome_perfil: igAccount.name,
-      username: igAccount.username,
-      avatar_url: igAccount.profile_picture_url,
-      seguidores: igAccount.followers_count,
+      nome_perfil: profile.name,
+      username: profile.username,
+      avatar_url: profile.profile_picture_url,
+      seguidores: profile.followers_count,
     };
 
     if (state && state !== 'new') {
@@ -45,17 +45,15 @@ export async function GET(request: NextRequest) {
     } else {
       // Check if account with this ig_user_id already exists
       const existing = await prisma.contaSocial.findFirst({
-        where: { ig_user_id: igAccount.ig_user_id },
+        where: { ig_user_id: profile.ig_user_id },
       });
 
       if (existing) {
-        // Update existing
         await prisma.contaSocial.update({
           where: { id: existing.id },
           data: igData,
         });
       } else {
-        // Create new account
         await prisma.contaSocial.create({
           data: {
             plataforma: 'instagram',
