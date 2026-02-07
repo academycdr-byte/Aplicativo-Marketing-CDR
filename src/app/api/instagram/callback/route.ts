@@ -5,10 +5,10 @@ import { prisma } from '@/lib/database';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const contaId = searchParams.get('state');
+  const state = searchParams.get('state');
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-  if (!code || !contaId) {
+  if (!code) {
     return NextResponse.redirect(`${appUrl}/contas?error=missing_params`);
   }
 
@@ -22,23 +22,48 @@ export async function GET(request: NextRequest) {
     // Get Instagram Business Account info
     const igAccount = await getInstagramAccount(longToken.access_token);
 
-    // Update the account in the database
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + longToken.expires_in);
 
-    await prisma.contaSocial.update({
-      where: { id: parseInt(contaId) },
-      data: {
-        ig_user_id: igAccount.ig_user_id,
-        access_token: longToken.access_token,
-        token_expires_at: expiresAt,
-        auto_sync: true,
-        nome_perfil: igAccount.name,
-        username: igAccount.username,
-        avatar_url: igAccount.profile_picture_url,
-        seguidores: igAccount.followers_count,
-      },
-    });
+    const igData = {
+      ig_user_id: igAccount.ig_user_id,
+      access_token: longToken.access_token,
+      token_expires_at: expiresAt,
+      auto_sync: true,
+      nome_perfil: igAccount.name,
+      username: igAccount.username,
+      avatar_url: igAccount.profile_picture_url,
+      seguidores: igAccount.followers_count,
+    };
+
+    if (state && state !== 'new') {
+      // Update existing account
+      await prisma.contaSocial.update({
+        where: { id: parseInt(state) },
+        data: igData,
+      });
+    } else {
+      // Check if account with this ig_user_id already exists
+      const existing = await prisma.contaSocial.findFirst({
+        where: { ig_user_id: igAccount.ig_user_id },
+      });
+
+      if (existing) {
+        // Update existing
+        await prisma.contaSocial.update({
+          where: { id: existing.id },
+          data: igData,
+        });
+      } else {
+        // Create new account
+        await prisma.contaSocial.create({
+          data: {
+            plataforma: 'instagram',
+            ...igData,
+          },
+        });
+      }
+    }
 
     return NextResponse.redirect(`${appUrl}/contas?success=connected`);
   } catch (error) {

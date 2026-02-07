@@ -3,7 +3,7 @@ const META_APP_ID = process.env.META_APP_ID!;
 const META_APP_SECRET = process.env.META_APP_SECRET!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-export function getOAuthUrl(contaId: number): string {
+export function getOAuthUrl(contaId: string | number): string {
   const redirectUri = `${APP_URL}/api/instagram/callback`;
   const scopes = [
     'instagram_basic',
