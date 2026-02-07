@@ -23,16 +23,23 @@ model Colaborador {
 }
 
 model ContaSocial {
-  id          Int        @id @default(autoincrement())
-  plataforma  String
-  nome_perfil String
-  username    String
-  avatar_url  String     @default("")
-  seguidores  Int        @default(0)
-  ativa       Boolean    @default(true)
-  created_at  DateTime   @default(now())
+  id                Int        @id @default(autoincrement())
+  plataforma        String
+  nome_perfil       String
+  username          String
+  avatar_url        String     @default("")
+  seguidores        Int        @default(0)
+  ativa             Boolean    @default(true)
+  created_at        DateTime   @default(now())
 
-  postagens   Postagem[]
+  // Instagram API integration
+  ig_user_id        String?
+  access_token      String?
+  token_expires_at  DateTime?
+  auto_sync         Boolean    @default(false)
+  last_sync_at      DateTime?
+
+  postagens         Postagem[]
 
   @@map("contas_sociais")
 }
@@ -51,6 +58,9 @@ model Postagem {
   compartilhamentos  Int          @default(0)
   data_postagem      DateTime     @default(now()) @db.Date
   created_at         DateTime     @default(now())
+
+  // Instagram API - external media ID for deduplication
+  external_id        String?      @unique
 
   conta              ContaSocial  @relation(fields: [conta_id], references: [id])
   colaborador        Colaborador  @relation(fields: [colaborador_id], references: [id])
