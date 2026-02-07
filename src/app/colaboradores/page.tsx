@@ -24,8 +24,13 @@ export default function ColaboradoresPage() {
 
   const fetchColaboradores = () => {
     fetch('/api/colaboradores')
-      .then(res => res.json())
-      .then(data => { setColaboradores(data); setLoading(false); });
+      .then(res => {
+        if (!res.ok) throw new Error('Erro');
+        return res.json();
+      })
+      .then(data => { if (Array.isArray(data)) setColaboradores(data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchColaboradores(); }, []);

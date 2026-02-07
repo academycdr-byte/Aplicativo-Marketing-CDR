@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Colaborador {
+  id         Int        @id @default(autoincrement())
+  nome       String
+  email      String
+  cargo      String     @default("Marketing")
+  ativo      Boolean    @default(true)
+  created_at DateTime   @default(now())
+
+  postagens  Postagem[]
+  comissoes  Comissao[]
+
+  @@map("colaboradores")
+}
+
+model ContaSocial {
+  id          Int        @id @default(autoincrement())
+  plataforma  String
+  nome_perfil String
+  username    String
+  avatar_url  String     @default("")
+  seguidores  Int        @default(0)
+  ativa       Boolean    @default(true)
+  created_at  DateTime   @default(now())
+
+  postagens   Postagem[]
+
+  @@map("contas_sociais")
+}
+
+model Postagem {
+  id                 Int          @id @default(autoincrement())
+  conta_id           Int
+  colaborador_id     Int
+  titulo             String
+  url                String       @default("")
+  thumbnail_url      String       @default("")
+  categoria          String
+  visualizacoes      Int          @default(0)
+  curtidas           Int          @default(0)
+  comentarios        Int          @default(0)
+  compartilhamentos  Int          @default(0)
+  data_postagem      DateTime     @default(now()) @db.Date
+  created_at         DateTime     @default(now())
+
+  conta              ContaSocial  @relation(fields: [conta_id], references: [id])
+  colaborador        Colaborador  @relation(fields: [colaborador_id], references: [id])
+  comissoes          Comissao[]
+
+  @@map("postagens")
+}
+
+model ConfiguracaoCPM {
+  id           Int      @id @default(autoincrement())
+  categoria    String   @unique
+  valor_por_cpm Float
+  updated_at   DateTime @default(now()) @updatedAt
+
+  @@map("configuracoes_cpm")
+}
+
+model Comissao {
+  id              Int       @id @default(autoincrement())
+  colaborador_id  Int
+  postagem_id     Int
+  valor           Float
+  mes_referencia  String
+  pago            Boolean   @default(false)
+  data_pagamento  DateTime?
+  created_at      DateTime  @default(now())
+
+  colaborador     Colaborador @relation(fields: [colaborador_id], references: [id])
+  postagem        Postagem    @relation(fields: [postagem_id], references: [id])
+
+  @@map("comissoes")
+}

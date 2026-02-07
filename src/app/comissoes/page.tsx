@@ -50,17 +50,19 @@ export default function ComissoesPage() {
   const [filterStatus, setFilterStatus] = useState('');
 
   const fetchComissoes = async () => {
-    const params = new URLSearchParams();
-    if (mesSelecionado) params.set('mes', mesSelecionado);
-    if (filterColaborador) params.set('colaborador_id', filterColaborador);
-    if (filterStatus) params.set('pago', filterStatus);
+    try {
+      const params = new URLSearchParams();
+      if (mesSelecionado) params.set('mes', mesSelecionado);
+      if (filterColaborador) params.set('colaborador_id', filterColaborador);
+      if (filterStatus) params.set('pago', filterStatus);
 
-    const [comRes, colabRes] = await Promise.all([
-      fetch(`/api/comissoes?${params}`).then(r => r.json()),
-      fetch('/api/colaboradores').then(r => r.json()),
-    ]);
-    setComissoes(comRes);
-    setColaboradores(colabRes);
+      const [comRes, colabRes] = await Promise.all([
+        fetch(`/api/comissoes?${params}`).then(r => r.ok ? r.json() : []),
+        fetch('/api/colaboradores').then(r => r.ok ? r.json() : []),
+      ]);
+      if (Array.isArray(comRes)) setComissoes(comRes);
+      if (Array.isArray(colabRes)) setColaboradores(colabRes);
+    } catch {}
     setLoading(false);
   };
 

@@ -1,346 +1,338 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { PrismaClient } from '@prisma/client';
 
-const DB_PATH = path.join(process.cwd(), 'cdr-marketing.db');
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-let db: Database.Database | null = null;
+export const prisma = globalForPrisma.prisma || new PrismaClient();
 
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initializeDatabase(db);
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+// ============ SEED (default CPM values) ============
+export async function ensureDefaultCPM() {
+  const count = await prisma.configuracaoCPM.count();
+  if (count === 0) {
+    await prisma.configuracaoCPM.createMany({
+      data: [
+        { categoria: 'viral', valor_por_cpm: 2.0 },
+        { categoria: 'tecnico', valor_por_cpm: 5.0 },
+      ],
+      skipDuplicates: true,
+    });
   }
-  return db;
-}
-
-function initializeDatabase(db: Database.Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS colaboradores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
-      email TEXT NOT NULL,
-      cargo TEXT NOT NULL DEFAULT 'Marketing',
-      ativo INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS contas_sociais (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      plataforma TEXT NOT NULL CHECK(plataforma IN ('instagram', 'tiktok')),
-      nome_perfil TEXT NOT NULL,
-      username TEXT NOT NULL,
-      avatar_url TEXT NOT NULL DEFAULT '',
-      seguidores INTEGER NOT NULL DEFAULT 0,
-      ativa INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS postagens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      conta_id INTEGER NOT NULL,
-      colaborador_id INTEGER NOT NULL,
-      titulo TEXT NOT NULL,
-      url TEXT NOT NULL DEFAULT '',
-      thumbnail_url TEXT NOT NULL DEFAULT '',
-      categoria TEXT NOT NULL CHECK(categoria IN ('viral', 'tecnico')),
-      visualizacoes INTEGER NOT NULL DEFAULT 0,
-      curtidas INTEGER NOT NULL DEFAULT 0,
-      comentarios INTEGER NOT NULL DEFAULT 0,
-      compartilhamentos INTEGER NOT NULL DEFAULT 0,
-      data_postagem TEXT NOT NULL DEFAULT (date('now')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (conta_id) REFERENCES contas_sociais(id),
-      FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS configuracoes_cpm (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      categoria TEXT NOT NULL UNIQUE CHECK(categoria IN ('viral', 'tecnico')),
-      valor_por_cpm REAL NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS comissoes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      colaborador_id INTEGER NOT NULL,
-      postagem_id INTEGER NOT NULL,
-      valor REAL NOT NULL,
-      mes_referencia TEXT NOT NULL,
-      pago INTEGER NOT NULL DEFAULT 0,
-      data_pagamento TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id),
-      FOREIGN KEY (postagem_id) REFERENCES postagens(id)
-    );
-
-    -- Insert default CPM values if not exists
-    INSERT OR IGNORE INTO configuracoes_cpm (categoria, valor_por_cpm) VALUES ('viral', 2.00);
-    INSERT OR IGNORE INTO configuracoes_cpm (categoria, valor_por_cpm) VALUES ('tecnico', 5.00);
-  `);
 }
 
 // ============ COLABORADORES ============
-export function getColaboradores() {
-  return getDb().prepare('SELECT * FROM colaboradores ORDER BY nome').all();
+export async function getColaboradores() {
+  return prisma.colaborador.findMany({ orderBy: { nome: 'asc' } });
 }
 
-export function getColaborador(id: number) {
-  return getDb().prepare('SELECT * FROM colaboradores WHERE id = ?').get(id);
+export async function getColaborador(id: number) {
+  return prisma.colaborador.findUnique({ where: { id } });
 }
 
-export function createColaborador(data: { nome: string; email: string; cargo: string }) {
-  const stmt = getDb().prepare('INSERT INTO colaboradores (nome, email, cargo) VALUES (?, ?, ?)');
-  const result = stmt.run(data.nome, data.email, data.cargo);
-  return { id: result.lastInsertRowid, ...data };
+export async function createColaborador(data: { nome: string; email: string; cargo: string }) {
+  return prisma.colaborador.create({ data });
 }
 
-export function updateColaborador(id: number, data: { nome: string; email: string; cargo: string; ativo: boolean }) {
-  const stmt = getDb().prepare('UPDATE colaboradores SET nome = ?, email = ?, cargo = ?, ativo = ? WHERE id = ?');
-  stmt.run(data.nome, data.email, data.cargo, data.ativo ? 1 : 0, id);
-  return getColaborador(id);
+export async function updateColaborador(id: number, data: { nome: string; email: string; cargo: string; ativo: boolean }) {
+  return prisma.colaborador.update({ where: { id }, data });
 }
 
-export function deleteColaborador(id: number) {
-  getDb().prepare('DELETE FROM colaboradores WHERE id = ?').run(id);
+export async function deleteColaborador(id: number) {
+  await prisma.colaborador.delete({ where: { id } });
 }
 
 // ============ CONTAS SOCIAIS ============
-export function getContasSociais() {
-  return getDb().prepare('SELECT * FROM contas_sociais ORDER BY plataforma, nome_perfil').all();
+export async function getContasSociais() {
+  return prisma.contaSocial.findMany({ orderBy: [{ plataforma: 'asc' }, { nome_perfil: 'asc' }] });
 }
 
-export function getContaSocial(id: number) {
-  return getDb().prepare('SELECT * FROM contas_sociais WHERE id = ?').get(id);
+export async function getContaSocial(id: number) {
+  return prisma.contaSocial.findUnique({ where: { id } });
 }
 
-export function createContaSocial(data: { plataforma: string; nome_perfil: string; username: string; avatar_url?: string; seguidores?: number }) {
-  const stmt = getDb().prepare('INSERT INTO contas_sociais (plataforma, nome_perfil, username, avatar_url, seguidores) VALUES (?, ?, ?, ?, ?)');
-  const result = stmt.run(data.plataforma, data.nome_perfil, data.username, data.avatar_url || '', data.seguidores || 0);
-  return { id: result.lastInsertRowid, ...data };
+export async function createContaSocial(data: { plataforma: string; nome_perfil: string; username: string; avatar_url?: string; seguidores?: number }) {
+  return prisma.contaSocial.create({
+    data: {
+      plataforma: data.plataforma,
+      nome_perfil: data.nome_perfil,
+      username: data.username,
+      avatar_url: data.avatar_url || '',
+      seguidores: data.seguidores || 0,
+    },
+  });
 }
 
-export function updateContaSocial(id: number, data: { plataforma?: string; nome_perfil?: string; username?: string; avatar_url?: string; seguidores?: number; ativa?: boolean }) {
-  const fields: string[] = [];
-  const values: (string | number)[] = [];
-
-  if (data.plataforma !== undefined) { fields.push('plataforma = ?'); values.push(data.plataforma); }
-  if (data.nome_perfil !== undefined) { fields.push('nome_perfil = ?'); values.push(data.nome_perfil); }
-  if (data.username !== undefined) { fields.push('username = ?'); values.push(data.username); }
-  if (data.avatar_url !== undefined) { fields.push('avatar_url = ?'); values.push(data.avatar_url); }
-  if (data.seguidores !== undefined) { fields.push('seguidores = ?'); values.push(data.seguidores); }
-  if (data.ativa !== undefined) { fields.push('ativa = ?'); values.push(data.ativa ? 1 : 0); }
-
-  values.push(id);
-  getDb().prepare(`UPDATE contas_sociais SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-  return getContaSocial(id);
+export async function updateContaSocial(id: number, data: { plataforma?: string; nome_perfil?: string; username?: string; avatar_url?: string; seguidores?: number; ativa?: boolean }) {
+  return prisma.contaSocial.update({ where: { id }, data });
 }
 
-export function deleteContaSocial(id: number) {
-  getDb().prepare('DELETE FROM contas_sociais WHERE id = ?').run(id);
+export async function deleteContaSocial(id: number) {
+  await prisma.contaSocial.delete({ where: { id } });
 }
 
 // ============ POSTAGENS ============
-export function getPostagens(filters?: { conta_id?: number; colaborador_id?: number; categoria?: string; mes?: string }) {
-  let query = `
-    SELECT p.*,
-      c.nome_perfil as conta_nome, c.plataforma as conta_plataforma, c.username as conta_username,
-      col.nome as colaborador_nome
-    FROM postagens p
-    JOIN contas_sociais c ON p.conta_id = c.id
-    JOIN colaboradores col ON p.colaborador_id = col.id
-    WHERE 1=1
-  `;
-  const params: (string | number)[] = [];
+export async function getPostagens(filters?: { conta_id?: number; colaborador_id?: number; categoria?: string; mes?: string }) {
+  const where: Record<string, unknown> = {};
 
-  if (filters?.conta_id) { query += ' AND p.conta_id = ?'; params.push(filters.conta_id); }
-  if (filters?.colaborador_id) { query += ' AND p.colaborador_id = ?'; params.push(filters.colaborador_id); }
-  if (filters?.categoria) { query += ' AND p.categoria = ?'; params.push(filters.categoria); }
-  if (filters?.mes) { query += " AND strftime('%Y-%m', p.data_postagem) = ?"; params.push(filters.mes); }
+  if (filters?.conta_id) where.conta_id = filters.conta_id;
+  if (filters?.colaborador_id) where.colaborador_id = filters.colaborador_id;
+  if (filters?.categoria) where.categoria = filters.categoria;
+  if (filters?.mes) {
+    const [year, month] = filters.mes.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+    where.data_postagem = { gte: startDate, lt: endDate };
+  }
 
-  query += ' ORDER BY p.data_postagem DESC';
-  return getDb().prepare(query).all(...params);
+  const postagens = await prisma.postagem.findMany({
+    where,
+    include: {
+      conta: { select: { nome_perfil: true, plataforma: true, username: true } },
+      colaborador: { select: { nome: true } },
+    },
+    orderBy: { data_postagem: 'desc' },
+  });
+
+  return postagens.map((p) => ({
+    ...p,
+    data_postagem: p.data_postagem.toISOString().split('T')[0],
+    created_at: p.created_at.toISOString(),
+    conta_nome: p.conta.nome_perfil,
+    conta_plataforma: p.conta.plataforma,
+    conta_username: p.conta.username,
+    colaborador_nome: p.colaborador.nome,
+    conta: undefined,
+    colaborador: undefined,
+  }));
 }
 
-export function getPostagem(id: number) {
-  return getDb().prepare(`
-    SELECT p.*,
-      c.nome_perfil as conta_nome, c.plataforma as conta_plataforma, c.username as conta_username,
-      col.nome as colaborador_nome
-    FROM postagens p
-    JOIN contas_sociais c ON p.conta_id = c.id
-    JOIN colaboradores col ON p.colaborador_id = col.id
-    WHERE p.id = ?
-  `).get(id);
+export async function getPostagem(id: number) {
+  const p = await prisma.postagem.findUnique({
+    where: { id },
+    include: {
+      conta: { select: { nome_perfil: true, plataforma: true, username: true } },
+      colaborador: { select: { nome: true } },
+    },
+  });
+  if (!p) return null;
+  return {
+    ...p,
+    data_postagem: p.data_postagem.toISOString().split('T')[0],
+    created_at: p.created_at.toISOString(),
+    conta_nome: p.conta.nome_perfil,
+    conta_plataforma: p.conta.plataforma,
+    conta_username: p.conta.username,
+    colaborador_nome: p.colaborador.nome,
+    conta: undefined,
+    colaborador: undefined,
+  };
 }
 
-export function createPostagem(data: {
+export async function createPostagem(data: {
   conta_id: number; colaborador_id: number; titulo: string; url?: string;
   thumbnail_url?: string; categoria: string; visualizacoes: number;
   curtidas?: number; comentarios?: number; compartilhamentos?: number; data_postagem: string;
 }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO postagens (conta_id, colaborador_id, titulo, url, thumbnail_url, categoria, visualizacoes, curtidas, comentarios, compartilhamentos, data_postagem)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const result = stmt.run(
-    data.conta_id, data.colaborador_id, data.titulo, data.url || '', data.thumbnail_url || '',
-    data.categoria, data.visualizacoes, data.curtidas || 0, data.comentarios || 0,
-    data.compartilhamentos || 0, data.data_postagem
-  );
-  return { id: result.lastInsertRowid, ...data };
+  return prisma.postagem.create({
+    data: {
+      conta_id: data.conta_id,
+      colaborador_id: data.colaborador_id,
+      titulo: data.titulo,
+      url: data.url || '',
+      thumbnail_url: data.thumbnail_url || '',
+      categoria: data.categoria,
+      visualizacoes: data.visualizacoes,
+      curtidas: data.curtidas || 0,
+      comentarios: data.comentarios || 0,
+      compartilhamentos: data.compartilhamentos || 0,
+      data_postagem: new Date(data.data_postagem),
+    },
+  });
 }
 
-export function updatePostagem(id: number, data: Partial<{
+export async function updatePostagem(id: number, data: Partial<{
   conta_id: number; colaborador_id: number; titulo: string; url: string;
   thumbnail_url: string; categoria: string; visualizacoes: number;
   curtidas: number; comentarios: number; compartilhamentos: number; data_postagem: string;
 }>) {
-  const fields: string[] = [];
-  const values: (string | number)[] = [];
-
-  Object.entries(data).forEach(([key, value]) => {
-    if (value !== undefined) {
-      fields.push(`${key} = ?`);
-      values.push(value);
-    }
-  });
-
-  values.push(id);
-  getDb().prepare(`UPDATE postagens SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const updateData: Record<string, unknown> = { ...data };
+  if (data.data_postagem) {
+    updateData.data_postagem = new Date(data.data_postagem);
+  }
+  await prisma.postagem.update({ where: { id }, data: updateData });
   return getPostagem(id);
 }
 
-export function deletePostagem(id: number) {
-  getDb().prepare('DELETE FROM comissoes WHERE postagem_id = ?').run(id);
-  getDb().prepare('DELETE FROM postagens WHERE id = ?').run(id);
+export async function deletePostagem(id: number) {
+  await prisma.comissao.deleteMany({ where: { postagem_id: id } });
+  await prisma.postagem.delete({ where: { id } });
 }
 
 // ============ CONFIGURACOES CPM ============
-export function getConfiguracoesCPM() {
-  return getDb().prepare('SELECT * FROM configuracoes_cpm ORDER BY categoria').all();
+export async function getConfiguracoesCPM() {
+  await ensureDefaultCPM();
+  return prisma.configuracaoCPM.findMany({ orderBy: { categoria: 'asc' } });
 }
 
-export function updateConfiguracaoCPM(categoria: string, valor_por_cpm: number) {
-  getDb().prepare("UPDATE configuracoes_cpm SET valor_por_cpm = ?, updated_at = datetime('now') WHERE categoria = ?")
-    .run(valor_por_cpm, categoria);
-  return getDb().prepare('SELECT * FROM configuracoes_cpm WHERE categoria = ?').get(categoria);
+export async function updateConfiguracaoCPM(categoria: string, valor_por_cpm: number) {
+  return prisma.configuracaoCPM.update({
+    where: { categoria },
+    data: { valor_por_cpm },
+  });
 }
 
 // ============ COMISSOES ============
-export function getComissoes(filters?: { colaborador_id?: number; mes?: string; pago?: boolean }) {
-  let query = `
-    SELECT com.*,
-      col.nome as colaborador_nome,
-      p.titulo as postagem_titulo, p.visualizacoes as postagem_visualizacoes,
-      p.categoria as postagem_categoria, c.plataforma as conta_plataforma
-    FROM comissoes com
-    JOIN colaboradores col ON com.colaborador_id = col.id
-    JOIN postagens p ON com.postagem_id = p.id
-    JOIN contas_sociais c ON p.conta_id = c.id
-    WHERE 1=1
-  `;
-  const params: (string | number)[] = [];
+export async function getComissoes(filters?: { colaborador_id?: number; mes?: string; pago?: boolean }) {
+  const where: Record<string, unknown> = {};
 
-  if (filters?.colaborador_id) { query += ' AND com.colaborador_id = ?'; params.push(filters.colaborador_id); }
-  if (filters?.mes) { query += ' AND com.mes_referencia = ?'; params.push(filters.mes); }
-  if (filters?.pago !== undefined) { query += ' AND com.pago = ?'; params.push(filters.pago ? 1 : 0); }
+  if (filters?.colaborador_id) where.colaborador_id = filters.colaborador_id;
+  if (filters?.mes) where.mes_referencia = filters.mes;
+  if (filters?.pago !== undefined) where.pago = filters.pago;
 
-  query += ' ORDER BY com.created_at DESC';
-  return getDb().prepare(query).all(...params);
-}
-
-export function calcularComissoes(mes: string) {
-  const db = getDb();
-
-  // Get CPM configs
-  const configs = db.prepare('SELECT * FROM configuracoes_cpm').all() as { categoria: string; valor_por_cpm: number }[];
-  const cpmMap: Record<string, number> = {};
-  configs.forEach(c => { cpmMap[c.categoria] = c.valor_por_cpm; });
-
-  // Get all posts for the month
-  const postagens = db.prepare(`
-    SELECT * FROM postagens WHERE strftime('%Y-%m', data_postagem) = ?
-  `).all(mes) as { id: number; colaborador_id: number; categoria: string; visualizacoes: number }[];
-
-  // Delete existing commissions for this month, then recalculate
-  db.prepare('DELETE FROM comissoes WHERE mes_referencia = ?').run(mes);
-
-  const insertStmt = db.prepare(`
-    INSERT INTO comissoes (colaborador_id, postagem_id, valor, mes_referencia)
-    VALUES (?, ?, ?, ?)
-  `);
-
-  const insertMany = db.transaction(() => {
-    for (const post of postagens) {
-      const cpmValue = cpmMap[post.categoria] || 0;
-      const comissao = (post.visualizacoes / 1000) * cpmValue;
-      insertStmt.run(post.colaborador_id, post.id, comissao, mes);
-    }
+  const comissoes = await prisma.comissao.findMany({
+    where,
+    include: {
+      colaborador: { select: { nome: true } },
+      postagem: {
+        select: { titulo: true, visualizacoes: true, categoria: true, conta: { select: { plataforma: true } } },
+      },
+    },
+    orderBy: { created_at: 'desc' },
   });
 
-  insertMany();
+  return comissoes.map((c) => ({
+    ...c,
+    created_at: c.created_at.toISOString(),
+    data_pagamento: c.data_pagamento?.toISOString() || null,
+    colaborador_nome: c.colaborador.nome,
+    postagem_titulo: c.postagem.titulo,
+    postagem_visualizacoes: c.postagem.visualizacoes,
+    postagem_categoria: c.postagem.categoria,
+    conta_plataforma: c.postagem.conta.plataforma,
+    colaborador: undefined,
+    postagem: undefined,
+  }));
+}
+
+export async function calcularComissoes(mes: string) {
+  const configs = await prisma.configuracaoCPM.findMany();
+  const cpmMap: Record<string, number> = {};
+  configs.forEach((c) => { cpmMap[c.categoria] = c.valor_por_cpm; });
+
+  const [year, month] = mes.split('-').map(Number);
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 1);
+
+  const postagens = await prisma.postagem.findMany({
+    where: { data_postagem: { gte: startDate, lt: endDate } },
+  });
+
+  // Delete existing commissions for this month, then recalculate
+  await prisma.comissao.deleteMany({ where: { mes_referencia: mes } });
+
+  for (const post of postagens) {
+    const cpmValue = cpmMap[post.categoria] || 0;
+    const comissao = (post.visualizacoes / 1000) * cpmValue;
+    await prisma.comissao.create({
+      data: {
+        colaborador_id: post.colaborador_id,
+        postagem_id: post.id,
+        valor: comissao,
+        mes_referencia: mes,
+      },
+    });
+  }
+
   return getComissoes({ mes });
 }
 
-export function marcarComissaoPaga(id: number) {
-  getDb().prepare("UPDATE comissoes SET pago = 1, data_pagamento = datetime('now') WHERE id = ?").run(id);
+export async function marcarComissaoPaga(id: number) {
+  await prisma.comissao.update({
+    where: { id },
+    data: { pago: true, data_pagamento: new Date() },
+  });
 }
 
-export function marcarComissaoNaoPaga(id: number) {
-  getDb().prepare("UPDATE comissoes SET pago = 0, data_pagamento = NULL WHERE id = ?").run(id);
+export async function marcarComissaoNaoPaga(id: number) {
+  await prisma.comissao.update({
+    where: { id },
+    data: { pago: false, data_pagamento: null },
+  });
 }
 
 // ============ DASHBOARD ============
-export function getDashboardStats(): Record<string, unknown> {
-  const db = getDb();
+export async function getDashboardStats(): Promise<Record<string, unknown>> {
+  const [
+    totalVisualizacoes,
+    totalPostagens,
+    totalColaboradores,
+    totalComissoes,
+    comissoesPendentes,
+    comissoesPagas,
+  ] = await Promise.all([
+    prisma.postagem.aggregate({ _sum: { visualizacoes: true } }),
+    prisma.postagem.count(),
+    prisma.colaborador.count({ where: { ativo: true } }),
+    prisma.comissao.aggregate({ _sum: { valor: true } }),
+    prisma.comissao.aggregate({ _sum: { valor: true }, where: { pago: false } }),
+    prisma.comissao.aggregate({ _sum: { valor: true }, where: { pago: true } }),
+  ]);
 
-  const totalVisualizacoes = (db.prepare('SELECT COALESCE(SUM(visualizacoes), 0) as total FROM postagens').get() as { total: number }).total;
-  const totalPostagens = (db.prepare('SELECT COUNT(*) as total FROM postagens').get() as { total: number }).total;
-  const totalColaboradores = (db.prepare('SELECT COUNT(*) as total FROM colaboradores WHERE ativo = 1').get() as { total: number }).total;
-  const totalComissoes = (db.prepare('SELECT COALESCE(SUM(valor), 0) as total FROM comissoes').get() as { total: number }).total;
-  const comissoesPendentes = (db.prepare('SELECT COALESCE(SUM(valor), 0) as total FROM comissoes WHERE pago = 0').get() as { total: number }).total;
-  const comissoesPagas = (db.prepare('SELECT COALESCE(SUM(valor), 0) as total FROM comissoes WHERE pago = 1').get() as { total: number }).total;
-
-  const postagensPorMes = db.prepare(`
-    SELECT strftime('%Y-%m', data_postagem) as mes, COUNT(*) as quantidade
+  // Posts per month (last 12 months)
+  const postagensPorMes = await prisma.$queryRaw<{ mes: string; quantidade: bigint }[]>`
+    SELECT to_char(data_postagem, 'YYYY-MM') as mes, COUNT(*)::bigint as quantidade
     FROM postagens GROUP BY mes ORDER BY mes DESC LIMIT 12
-  `).all();
+  `;
 
-  const comissoesPorColaborador = db.prepare(`
-    SELECT col.nome, COALESCE(SUM(com.valor), 0) as valor
+  // Commissions per collaborator
+  const comissoesPorColaborador = await prisma.$queryRaw<{ nome: string; valor: number }[]>`
+    SELECT col.nome, COALESCE(SUM(com.valor), 0)::float as valor
     FROM colaboradores col
     LEFT JOIN comissoes com ON col.id = com.colaborador_id
-    WHERE col.ativo = 1
-    GROUP BY col.id ORDER BY valor DESC
-  `).all();
+    WHERE col.ativo = true
+    GROUP BY col.id, col.nome ORDER BY valor DESC
+  `;
 
-  const visualizacoesPorPlataforma = db.prepare(`
-    SELECT c.plataforma, COALESCE(SUM(p.visualizacoes), 0) as visualizacoes
+  // Views per platform
+  const visualizacoesPorPlataforma = await prisma.$queryRaw<{ plataforma: string; visualizacoes: bigint }[]>`
+    SELECT c.plataforma, COALESCE(SUM(p.visualizacoes), 0)::bigint as visualizacoes
     FROM contas_sociais c
     LEFT JOIN postagens p ON c.id = p.conta_id
     GROUP BY c.plataforma
-  `).all();
+  `;
 
-  const topPostagens = db.prepare(`
-    SELECT p.*, c.nome_perfil as conta_nome, c.plataforma as conta_plataforma, c.username as conta_username, col.nome as colaborador_nome
-    FROM postagens p
-    JOIN contas_sociais c ON p.conta_id = c.id
-    JOIN colaboradores col ON p.colaborador_id = col.id
-    ORDER BY p.visualizacoes DESC LIMIT 5
-  `).all();
+  // Top 5 posts
+  const topPostagensRaw = await prisma.postagem.findMany({
+    include: {
+      conta: { select: { nome_perfil: true, plataforma: true, username: true } },
+      colaborador: { select: { nome: true } },
+    },
+    orderBy: { visualizacoes: 'desc' },
+    take: 5,
+  });
+
+  const topPostagens = topPostagensRaw.map((p) => ({
+    ...p,
+    data_postagem: p.data_postagem.toISOString().split('T')[0],
+    created_at: p.created_at.toISOString(),
+    conta_nome: p.conta.nome_perfil,
+    conta_plataforma: p.conta.plataforma,
+    conta_username: p.conta.username,
+    colaborador_nome: p.colaborador.nome,
+    conta: undefined,
+    colaborador: undefined,
+  }));
 
   return {
-    total_visualizacoes: totalVisualizacoes,
-    total_comissoes: totalComissoes,
+    total_visualizacoes: totalVisualizacoes._sum.visualizacoes || 0,
+    total_comissoes: totalComissoes._sum.valor || 0,
     total_postagens: totalPostagens,
     total_colaboradores: totalColaboradores,
-    comissoes_pendentes: comissoesPendentes,
-    comissoes_pagas: comissoesPagas,
-    postagens_por_mes: postagensPorMes,
+    comissoes_pendentes: comissoesPendentes._sum.valor || 0,
+    comissoes_pagas: comissoesPagas._sum.valor || 0,
+    postagens_por_mes: postagensPorMes.map((r) => ({ mes: r.mes, quantidade: Number(r.quantidade) })),
     comissoes_por_colaborador: comissoesPorColaborador,
-    visualizacoes_por_plataforma: visualizacoesPorPlataforma,
+    visualizacoes_por_plataforma: visualizacoesPorPlataforma.map((r) => ({ plataforma: r.plataforma, visualizacoes: Number(r.visualizacoes) })),
     top_postagens: topPostagens,
   };
 }
