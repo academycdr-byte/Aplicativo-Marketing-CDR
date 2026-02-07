@@ -20,15 +20,20 @@ export default function ConfiguracoesPage() {
 
   const fetchConfigs = () => {
     fetch('/api/configuracoes')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Erro');
+        return res.json();
+      })
       .then((data: ConfigCPM[]) => {
+        if (!Array.isArray(data)) return;
         setConfigs(data);
         const viral = data.find(c => c.categoria === 'viral');
         const tecnico = data.find(c => c.categoria === 'tecnico');
         if (viral) setViralValue(viral.valor_por_cpm.toFixed(2));
         if (tecnico) setTecnicoValue(tecnico.valor_por_cpm.toFixed(2));
-        setLoading(false);
-      });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchConfigs(); }, []);

@@ -40,11 +40,19 @@ function formatMonth(mes: string): string {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(res => res.json())
-      .then(setData)
+      .then(res => {
+        if (!res.ok) throw new Error('Erro');
+        return res.json();
+      })
+      .then(d => {
+        if (d && typeof d.total_postagens === 'number') setData(d);
+        else throw new Error('Dados invalidos');
+      })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,9 +68,19 @@ export default function Dashboard() {
     );
   }
 
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+        <p className="text-lg font-medium text-gray-600 mb-2">Erro ao carregar dashboard</p>
+        <p className="text-sm mb-4">Verifique a conexao com o banco de dados.</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700">
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
-  const postagensMesData = [...data.postagens_por_mes].reverse().map(item => ({
+  const postagensMesData = [...(data.postagens_por_mes || [])].reverse().map(item => ({
     ...item,
     mes: formatMonth(item.mes),
   }));
@@ -180,7 +198,7 @@ export default function Dashboard() {
         {/* Top Postagens */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Postagens</h3>
-          {data.top_postagens.length > 0 ? (
+          {(data.top_postagens || []).length > 0 ? (
             <div className="space-y-3">
               {data.top_postagens.map((post, idx) => (
                 <div key={post.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
@@ -214,10 +232,10 @@ export default function Dashboard() {
         {/* Comissoes por Colaborador */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Comissoes por Colaborador</h3>
-          {data.comissoes_por_colaborador.length > 0 ? (
+          {(data.comissoes_por_colaborador || []).length > 0 ? (
             <div className="space-y-3">
-              {data.comissoes_por_colaborador.map((item, idx) => {
-                const maxValue = data.comissoes_por_colaborador[0]?.valor || 1;
+              {(data.comissoes_por_colaborador || []).map((item, idx) => {
+                const maxValue = (data.comissoes_por_colaborador || [])[0]?.valor || 1;
                 const percentage = maxValue > 0 ? (item.valor / maxValue) * 100 : 0;
                 return (
                   <div key={idx} className="space-y-1">

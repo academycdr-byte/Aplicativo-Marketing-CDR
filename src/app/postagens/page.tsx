@@ -58,14 +58,16 @@ export default function PostagensPage() {
   });
 
   const fetchAll = async () => {
-    const [postsRes, contasRes, colabRes] = await Promise.all([
-      fetch('/api/postagens').then(r => r.json()),
-      fetch('/api/contas').then(r => r.json()),
-      fetch('/api/colaboradores').then(r => r.json()),
-    ]);
-    setPostagens(postsRes);
-    setContas(contasRes);
-    setColaboradores(colabRes);
+    try {
+      const [postsRes, contasRes, colabRes] = await Promise.all([
+        fetch('/api/postagens').then(r => r.ok ? r.json() : []),
+        fetch('/api/contas').then(r => r.ok ? r.json() : []),
+        fetch('/api/colaboradores').then(r => r.ok ? r.json() : []),
+      ]);
+      if (Array.isArray(postsRes)) setPostagens(postsRes);
+      if (Array.isArray(contasRes)) setContas(contasRes);
+      if (Array.isArray(colabRes)) setColaboradores(colabRes);
+    } catch {}
     setLoading(false);
   };
 

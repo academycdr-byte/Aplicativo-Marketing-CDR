@@ -36,8 +36,13 @@ export default function ContasSociaisPage() {
 
   const fetchContas = () => {
     fetch('/api/contas')
-      .then(res => res.json())
-      .then(data => { setContas(data); setLoading(false); });
+      .then(res => {
+        if (!res.ok) throw new Error('Erro');
+        return res.json();
+      })
+      .then(data => { if (Array.isArray(data)) setContas(data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchContas(); }, []);
