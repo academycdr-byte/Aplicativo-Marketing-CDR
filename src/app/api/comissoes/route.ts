@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       if (pago === 'true' || pago === 'false') filters.pago = pago === 'true';
     }
 
-    const comissoes = getComissoes(filters);
+    const comissoes = await getComissoes(filters);
     return NextResponse.json(comissoes);
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao carregar comissoes' }, { status: 500 });
@@ -24,17 +24,17 @@ export async function POST(request: NextRequest) {
     const { action, mes, id } = await request.json();
 
     if (action === 'calcular' && mes) {
-      const comissoes = calcularComissoes(mes);
+      const comissoes = await calcularComissoes(mes);
       return NextResponse.json(comissoes);
     }
 
     if (action === 'marcar_pago' && id) {
-      marcarComissaoPaga(id);
+      await marcarComissaoPaga(id);
       return NextResponse.json({ success: true });
     }
 
     if (action === 'marcar_nao_pago' && id) {
-      marcarComissaoNaoPaga(id);
+      await marcarComissaoNaoPaga(id);
       return NextResponse.json({ success: true });
     }
 

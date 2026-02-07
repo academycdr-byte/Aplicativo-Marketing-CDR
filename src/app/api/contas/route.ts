@@ -3,7 +3,7 @@ import { getContasSociais, createContaSocial, updateContaSocial, deleteContaSoci
 
 export async function GET() {
   try {
-    const contas = getContasSociais();
+    const contas = await getContasSociais();
     return NextResponse.json(contas);
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao carregar contas' }, { status: 500 });
@@ -13,7 +13,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const conta = createContaSocial(data);
+    const conta = await createContaSocial(data);
     return NextResponse.json(conta, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao criar conta' }, { status: 500 });
@@ -24,7 +24,7 @@ export async function PUT(request: NextRequest) {
   try {
     const data = await request.json();
     const { id, ...rest } = data;
-    const conta = updateContaSocial(id, rest);
+    const conta = await updateContaSocial(id, rest);
     return NextResponse.json(conta);
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao atualizar conta' }, { status: 500 });
@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = Number(searchParams.get('id'));
-    deleteContaSocial(id);
+    await deleteContaSocial(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao deletar conta' }, { status: 500 });
