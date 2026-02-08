@@ -25,7 +25,7 @@ interface DashboardData {
   top_postagens: {
     id: number; titulo: string; visualizacoes: number;
     curtidas?: number; comentarios?: number; compartilhamentos?: number;
-    categoria: string; conta_plataforma: string; colaborador_nome: string;
+    categoria: string; conta_plataforma: string; conta_nome: string; conta_username: string; colaborador_nome: string;
   }[];
   postagens_por_plataforma: { plataforma: string; quantidade: number; visualizacoes: number }[];
   postagens_por_perfil: { nome_perfil: string; username: string; plataforma: string; quantidade: number; visualizacoes: number }[];
@@ -62,6 +62,8 @@ export default function Dashboard() {
   const [activePreset, setActivePreset] = useState<Preset>('all');
   const [customInicio, setCustomInicio] = useState('');
   const [customFim, setCustomFim] = useState('');
+  const [topFilterPlataforma, setTopFilterPlataforma] = useState<string>('all');
+  const [topFilterPerfil, setTopFilterPerfil] = useState<string>('all');
 
   const fetchData = useCallback((inicio?: string, fim?: string) => {
     setLoading(true);
@@ -528,48 +530,91 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Top Posts */}
         <div className="card p-5 md:p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Top Postagens</h3>
             <Badge variant="accent">{(data.top_postagens || []).length} posts</Badge>
           </div>
-          {(data.top_postagens || []).length > 0 ? (
-            <div className="space-y-2 stagger-children">
-              {data.top_postagens.map((post, idx) => (
-                <div
-                  key={post.id}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-all animate-fade-in"
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                >
-                  <span className="text-base font-bold w-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    {idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{post.titulo}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>
-                        {post.categoria === 'viral' ? 'Viral' : 'Técnico'}
-                      </Badge>
-                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        {post.conta_plataforma} · {post.colaborador_nome}
-                      </span>
+          {/* Filters */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <select
+              value={topFilterPlataforma}
+              onChange={e => { setTopFilterPlataforma(e.target.value); setTopFilterPerfil('all'); }}
+              className="text-xs px-3 py-1.5 rounded-lg border-0 outline-none cursor-pointer"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
+            >
+              <option value="all">Todas as redes</option>
+              {[...new Set((data.top_postagens || []).map(p => p.conta_plataforma))].map(plat => (
+                <option key={plat} value={plat}>{plat}</option>
+              ))}
+            </select>
+            <select
+              value={topFilterPerfil}
+              onChange={e => setTopFilterPerfil(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border-0 outline-none cursor-pointer"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
+            >
+              <option value="all">Todos os perfis</option>
+              {[...new Set((data.top_postagens || [])
+                .filter(p => topFilterPlataforma === 'all' || p.conta_plataforma === topFilterPlataforma)
+                .map(p => p.conta_username))].map(usr => (
+                  <option key={usr} value={usr}>@{usr}</option>
+                ))}
+            </select>
+            {(topFilterPlataforma !== 'all' || topFilterPerfil !== 'all') && (
+              <button
+                onClick={() => { setTopFilterPlataforma('all'); setTopFilterPerfil('all'); }}
+                className="text-xs px-2 py-1 rounded-lg transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                ✕ Limpar
+              </button>
+            )}
+          </div>
+          {(() => {
+            const filtered = (data.top_postagens || []).filter(p => {
+              if (topFilterPlataforma !== 'all' && p.conta_plataforma !== topFilterPlataforma) return false;
+              if (topFilterPerfil !== 'all' && p.conta_username !== topFilterPerfil) return false;
+              return true;
+            });
+            return filtered.length > 0 ? (
+              <div className="space-y-2 stagger-children" style={{ maxHeight: '480px', overflowY: 'auto' }}>
+                {filtered.map((post, idx) => (
+                  <div
+                    key={post.id}
+                    className="flex items-center gap-3 p-3 rounded-xl transition-all animate-fade-in"
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    <span className="text-base font-bold w-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                      {idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{post.titulo}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>
+                          {post.categoria === 'viral' ? 'Viral' : 'Técnico'}
+                        </Badge>
+                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          {post.conta_plataforma} · @{post.conta_username} · {post.colaborador_nome}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {formatCompactNumber(post.visualizacoes)}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>views</p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {formatCompactNumber(post.visualizacoes)}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>views</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
-              Nenhuma postagem registrada
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
+                Nenhuma postagem encontrada
+              </div>
+            );
+          })()}
         </div>
 
         {/* Commissions by Collaborator */}
