@@ -63,16 +63,16 @@ export async function refreshLongLivedToken(token: string): Promise<{ access_tok
   return { access_token: token, expires_in: 5184000 }; // Mock refresh for now as FB handles this differently
 }
 
-export async function getInstagramProfile(accessToken: string): Promise<{
+export async function getConnectedProfiles(accessToken: string): Promise<Array<{
   ig_user_id: string;
   name: string;
   username: string;
   profile_picture_url: string;
   followers_count: number;
-}> {
+}>> {
   // 1. Get User's Pages which have an Instagram Business Account connected
   const fields = 'name,instagram_business_account{id,username,profile_picture_url,followers_count}';
-  const pagesUrl = `${FB_API}/v21.0/me/accounts?fields=${fields}&access_token=${accessToken}`;
+  const pagesUrl = `${FB_API}/v21.0/me/accounts?fields=${fields}&limit=100&access_token=${accessToken}`;
 
   const res = await fetch(pagesUrl);
 
@@ -83,22 +83,25 @@ export async function getInstagramProfile(accessToken: string): Promise<{
 
   const data = await res.json();
 
-  // Find the first page with a connected IG Business Account
-  const pageWithIg = data.data?.find((p: any) => p.instagram_business_account);
-
-  if (!pageWithIg) {
-    throw new Error('Nenhuma conta do Instagram Business conectada às Páginas do Facebook deste usuário.');
+  if (!data.data || !Array.isArray(data.data)) {
+    return [];
   }
 
-  const igAccount = pageWithIg.instagram_business_account;
+  // Filter pages that have a connected IG Business Account
+  const connectedProfiles = data.data
+    .filter((p: any) => p.instagram_business_account)
+    .map((p: any) => {
+      const igAccount = p.instagram_business_account;
+      return {
+        ig_user_id: igAccount.id,
+        name: p.name, // Use Page name as fallback
+        username: igAccount.username,
+        profile_picture_url: igAccount.profile_picture_url || '',
+        followers_count: igAccount.followers_count || 0,
+      };
+    });
 
-  return {
-    ig_user_id: igAccount.id,
-    name: pageWithIg.name, // Use Page name as fallback
-    username: igAccount.username,
-    profile_picture_url: igAccount.profile_picture_url || '',
-    followers_count: igAccount.followers_count || 0,
-  };
+  return connectedProfiles;
 }
 
 interface IGMedia {
@@ -133,10 +136,8 @@ export interface SyncedPost {
   data_postagem: string;
 }
 
-export async function fetchInstagramMedia(accessToken: string): Promise<SyncedPost[]> {
-  // First, we need the IG Business ID.
-  const profile = await getInstagramProfile(accessToken);
-  const igUserId = profile.ig_user_id;
+export async function fetchInstagramMedia(accessToken: string, igUserId: string): Promise<SyncedPost[]> {
+  // igUserId is now passed directly, no need to fetch profile
 
   const mediaFields = 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count';
   const url = `${FB_API}/v21.0/${igUserId}/media?fields=${mediaFields}&limit=50&access_token=${accessToken}`;
