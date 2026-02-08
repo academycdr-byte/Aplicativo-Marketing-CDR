@@ -261,7 +261,33 @@ export async function marcarComissaoNaoPaga(id: number) {
 }
 
 // ============ DASHBOARD ============
-export async function getDashboardStats(): Promise<Record<string, unknown>> {
+export async function getDashboardStats(inicio?: string, fim?: string): Promise<Record<string, unknown>> {
+  // Date filter for postagens
+  const dateFilter: Record<string, unknown> = {};
+  if (inicio || fim) {
+    dateFilter.data_postagem = {};
+    if (inicio) (dateFilter.data_postagem as Record<string, unknown>).gte = new Date(inicio);
+    if (fim) {
+      const fimDate = new Date(fim);
+      fimDate.setDate(fimDate.getDate() + 1); // inclusive end
+      (dateFilter.data_postagem as Record<string, unknown>).lt = fimDate;
+    }
+  }
+
+  // Commission date filter
+  const comissaoFilter: Record<string, unknown> = {};
+  if (inicio || fim) {
+    // Filter commissions by mes_referencia (YYYY-MM format)
+    if (inicio) {
+      const startMonth = inicio.substring(0, 7); // YYYY-MM
+      comissaoFilter.mes_referencia = { ...(comissaoFilter.mes_referencia as object || {}), gte: startMonth };
+    }
+    if (fim) {
+      const endMonth = fim.substring(0, 7);
+      comissaoFilter.mes_referencia = { ...(comissaoFilter.mes_referencia as object || {}), lte: endMonth };
+    }
+  }
+
   const [
     totalVisualizacoes,
     totalPostagens,
@@ -270,39 +296,49 @@ export async function getDashboardStats(): Promise<Record<string, unknown>> {
     comissoesPendentes,
     comissoesPagas,
   ] = await Promise.all([
-    prisma.postagem.aggregate({ _sum: { visualizacoes: true } }),
-    prisma.postagem.count(),
+    prisma.postagem.aggregate({ _sum: { visualizacoes: true }, where: dateFilter }),
+    prisma.postagem.count({ where: dateFilter }),
     prisma.colaborador.count({ where: { ativo: true } }),
-    prisma.comissao.aggregate({ _sum: { valor: true } }),
-    prisma.comissao.aggregate({ _sum: { valor: true }, where: { pago: false } }),
-    prisma.comissao.aggregate({ _sum: { valor: true }, where: { pago: true } }),
+    prisma.comissao.aggregate({ _sum: { valor: true }, where: comissaoFilter }),
+    prisma.comissao.aggregate({ _sum: { valor: true }, where: { ...comissaoFilter, pago: false } }),
+    prisma.comissao.aggregate({ _sum: { valor: true }, where: { ...comissaoFilter, pago: true } }),
   ]);
 
-  // Posts per month (last 12 months)
-  const postagensPorMes = await prisma.$queryRaw<{ mes: string; quantidade: bigint }[]>`
-    SELECT to_char(data_postagem, 'YYYY-MM') as mes, COUNT(*)::bigint as quantidade
-    FROM postagens GROUP BY mes ORDER BY mes DESC LIMIT 12
-  `;
+  // Posts per month (last 12 months or within range)
+  const dateCondition = (inicio || fim)
+    ? `WHERE ${inicio ? `data_postagem >= '${inicio}'` : '1=1'} AND ${fim ? `data_postagem <= '${fim}'::date + interval '1 day'` : '1=1'}`
+    : '';
+  const postagensPorMes = await prisma.$queryRawUnsafe<{ mes: string; quantidade: bigint }[]>(
+    `SELECT to_char(data_postagem, 'YYYY-MM') as mes, COUNT(*)::bigint as quantidade
+     FROM postagens ${dateCondition} GROUP BY mes ORDER BY mes DESC LIMIT 12`
+  );
 
   // Commissions per collaborator
-  const comissoesPorColaborador = await prisma.$queryRaw<{ nome: string; valor: number }[]>`
-    SELECT col.nome, COALESCE(SUM(com.valor), 0)::float as valor
-    FROM colaboradores col
-    LEFT JOIN comissoes com ON col.id = com.colaborador_id
-    WHERE col.ativo = true
-    GROUP BY col.id, col.nome ORDER BY valor DESC
-  `;
+  const comissaoCondition = (inicio || fim)
+    ? `AND ${inicio ? `com.mes_referencia >= '${inicio.substring(0, 7)}'` : '1=1'} AND ${fim ? `com.mes_referencia <= '${fim.substring(0, 7)}'` : '1=1'}`
+    : '';
+  const comissoesPorColaborador = await prisma.$queryRawUnsafe<{ nome: string; valor: number }[]>(
+    `SELECT col.nome, COALESCE(SUM(com.valor), 0)::float as valor
+     FROM colaboradores col
+     LEFT JOIN comissoes com ON col.id = com.colaborador_id ${comissaoCondition}
+     WHERE col.ativo = true
+     GROUP BY col.id, col.nome ORDER BY valor DESC`
+  );
 
   // Views per platform
-  const visualizacoesPorPlataforma = await prisma.$queryRaw<{ plataforma: string; visualizacoes: bigint }[]>`
-    SELECT c.plataforma, COALESCE(SUM(p.visualizacoes), 0)::bigint as visualizacoes
-    FROM contas_sociais c
-    LEFT JOIN postagens p ON c.id = p.conta_id
-    GROUP BY c.plataforma
-  `;
+  const platDateCondition = (inicio || fim)
+    ? `AND ${inicio ? `p.data_postagem >= '${inicio}'` : '1=1'} AND ${fim ? `p.data_postagem <= '${fim}'::date + interval '1 day'` : '1=1'}`
+    : '';
+  const visualizacoesPorPlataforma = await prisma.$queryRawUnsafe<{ plataforma: string; visualizacoes: bigint }[]>(
+    `SELECT c.plataforma, COALESCE(SUM(p.visualizacoes), 0)::bigint as visualizacoes
+     FROM contas_sociais c
+     LEFT JOIN postagens p ON c.id = p.conta_id ${platDateCondition}
+     GROUP BY c.plataforma`
+  );
 
   // Top 5 posts
   const topPostagensRaw = await prisma.postagem.findMany({
+    where: dateFilter,
     include: {
       conta: { select: { nome_perfil: true, plataforma: true, username: true } },
       colaborador: { select: { nome: true } },

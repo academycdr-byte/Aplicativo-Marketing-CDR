@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import StatsCard from '@/components/StatsCard';
 import { SkeletonStats, SkeletonChart } from '@/components/Skeleton';
 import Badge from '@/components/Badge';
 import Avatar from '@/components/Avatar';
-import { Eye, DollarSign, FileVideo, Users, TrendingUp, BarChart3 } from 'lucide-react';
+import { Eye, DollarSign, FileVideo, Users, TrendingUp, BarChart3, Calendar } from 'lucide-react';
 import { formatCurrency, formatNumber, formatCompactNumber, formatMonth, getGreeting, formatFullDate, getEngagementRate } from '@/lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,13 +29,43 @@ interface DashboardData {
   }[];
 }
 
+type Preset = '7d' | '30d' | '90d' | 'year' | 'all';
+
+function getPresetDates(preset: Preset): { inicio: string; fim: string } | null {
+  if (preset === 'all') return null;
+  const now = new Date();
+  const fim = now.toISOString().split('T')[0];
+  const start = new Date(now);
+  if (preset === '7d') start.setDate(start.getDate() - 7);
+  else if (preset === '30d') start.setDate(start.getDate() - 30);
+  else if (preset === '90d') start.setDate(start.getDate() - 90);
+  else if (preset === 'year') start.setFullYear(start.getFullYear() - 1);
+  return { inicio: start.toISOString().split('T')[0], fim };
+}
+
+const presets: { key: Preset; label: string }[] = [
+  { key: '7d', label: '7 dias' },
+  { key: '30d', label: '30 dias' },
+  { key: '90d', label: '90 dias' },
+  { key: 'year', label: '1 ano' },
+  { key: 'all', label: 'Tudo' },
+];
+
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [activePreset, setActivePreset] = useState<Preset>('all');
+  const [customInicio, setCustomInicio] = useState('');
+  const [customFim, setCustomFim] = useState('');
 
-  useEffect(() => {
-    fetch('/api/dashboard')
+  const fetchData = useCallback((inicio?: string, fim?: string) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (inicio) params.set('inicio', inicio);
+    if (fim) params.set('fim', fim);
+    const qs = params.toString();
+    fetch(`/api/dashboard${qs ? `?${qs}` : ''}`)
       .then(res => { if (!res.ok) throw new Error('Erro'); return res.json(); })
       .then(d => {
         if (d && typeof d.total_postagens === 'number') setData(d);
@@ -45,7 +75,25 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handlePreset = (preset: Preset) => {
+    setActivePreset(preset);
+    setCustomInicio('');
+    setCustomFim('');
+    const dates = getPresetDates(preset);
+    if (dates) fetchData(dates.inicio, dates.fim);
+    else fetchData();
+  };
+
+  const handleCustomDates = () => {
+    if (customInicio || customFim) {
+      setActivePreset('all'); // deselect presets
+      fetchData(customInicio || undefined, customFim || undefined);
+    }
+  };
+
+  if (loading && !data) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="space-y-1">
@@ -90,15 +138,53 @@ export default function Dashboard() {
   const avgViews = data.total_postagens > 0 ? Math.round(data.total_visualizacoes / data.total_postagens) : 0;
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-fade-in">
+    <div className={`space-y-6 md:space-y-8 animate-fade-in ${loading ? 'opacity-60 pointer-events-none' : ''}`} style={{ transition: 'opacity 0.3s' }}>
       {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          {getGreeting()}, Admin 👋
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-          {formatFullDate()}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {getGreeting()}, Admin 👋
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            {formatFullDate()}
+          </p>
+        </div>
+      </div>
+
+      {/* Date Selector */}
+      <div className="card p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Calendar className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Período:</span>
+          </div>
+          {/* Presets */}
+          <div className="flex items-center gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-hover)' }}>
+            {presets.map(p => (
+              <button key={p.key} onClick={() => handlePreset(p.key)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  background: activePreset === p.key && !customInicio && !customFim ? 'var(--bg-card)' : 'transparent',
+                  color: activePreset === p.key && !customInicio && !customFim ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  boxShadow: activePreset === p.key && !customInicio && !customFim ? 'var(--shadow-sm)' : 'none',
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {/* Custom */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <input type="date" className="input text-xs" style={{ width: 'auto', padding: '6px 10px' }}
+              value={customInicio} onChange={e => setCustomInicio(e.target.value)} />
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>até</span>
+            <input type="date" className="input text-xs" style={{ width: 'auto', padding: '6px 10px' }}
+              value={customFim} onChange={e => setCustomFim(e.target.value)} />
+            <button onClick={handleCustomDates} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{ background: 'var(--accent-surface)', color: 'var(--accent)' }}>
+              Filtrar
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
