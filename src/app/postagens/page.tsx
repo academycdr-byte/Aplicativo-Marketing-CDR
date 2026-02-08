@@ -32,6 +32,7 @@ export default function PostagensPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [filterPlataforma, setFilterPlataforma] = useState<string>('');
+  const [filterPerfil, setFilterPerfil] = useState<string>('');
   const [filterCategoria, setFilterCategoria] = useState<string>('');
   const [sortBy, setSortBy] = useState<'recent' | 'views'>('recent');
   const [form, setForm] = useState({ titulo: '', url: '', visualizacoes: 0, curtidas: 0, comentarios: 0, compartilhamentos: 0, categoria: 'viral' as 'viral' | 'tecnico', data_publicacao: '', conta_social_id: '', colaborador_id: '' });
@@ -88,10 +89,11 @@ export default function PostagensPage() {
       result = result.filter(p => p.titulo.toLowerCase().includes(s) || p.colaborador_nome?.toLowerCase().includes(s) || p.conta_nome?.toLowerCase().includes(s));
     }
     if (filterPlataforma) result = result.filter(p => p.conta_plataforma === filterPlataforma);
+    if (filterPerfil) result = result.filter(p => String(p.conta_social_id) === filterPerfil);
     if (filterCategoria) result = result.filter(p => p.categoria === filterCategoria);
     result = [...result].sort((a, b) => sortBy === 'views' ? b.visualizacoes - a.visualizacoes : new Date(b.data_publicacao).getTime() - new Date(a.data_publicacao).getTime());
     return result;
-  }, [postagens, search, filterPlataforma, filterCategoria, sortBy]);
+  }, [postagens, search, filterPlataforma, filterPerfil, filterCategoria, sortBy]);
 
   const engagementRate = (p: Postagem) => p.visualizacoes > 0 ? (((p.curtidas || 0) + (p.comentarios || 0) + (p.compartilhamentos || 0)) / p.visualizacoes * 100).toFixed(1) : '0.0';
 
@@ -111,10 +113,18 @@ export default function PostagensPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
           <input className="input pl-10" placeholder="Buscar postagens..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="input" style={{ width: 'auto' }} value={filterPlataforma} onChange={e => setFilterPlataforma(e.target.value)}>
+        <select className="input" style={{ width: 'auto' }} value={filterPlataforma} onChange={e => { setFilterPlataforma(e.target.value); setFilterPerfil(''); }}>
           <option value="">Todas plataformas</option>
           <option value="instagram">Instagram</option>
           <option value="tiktok">TikTok</option>
+        </select>
+        <select className="input" style={{ width: 'auto' }} value={filterPerfil} onChange={e => setFilterPerfil(e.target.value)}>
+          <option value="">Todos os perfis</option>
+          {contas
+            .filter(c => !filterPlataforma || c.plataforma === filterPlataforma)
+            .map(c => (
+              <option key={c.id} value={String(c.id)}>{c.nome_perfil} ({c.plataforma})</option>
+            ))}
         </select>
         <select className="input" style={{ width: 'auto' }} value={filterCategoria} onChange={e => setFilterCategoria(e.target.value)}>
           <option value="">Todas categorias</option>
