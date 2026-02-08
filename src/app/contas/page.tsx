@@ -57,7 +57,7 @@ export default function ContasSociaisPage() {
         return res.json();
       })
       .then(data => { if (Array.isArray(data)) setContas(data); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   };
 
@@ -66,7 +66,11 @@ export default function ContasSociaisPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'connected') {
-      setMessage({ type: 'success', text: 'Instagram conectado com sucesso! As postagens serao sincronizadas automaticamente.' });
+      const count = params.get('count');
+      const text = count
+        ? `Instagram conectado com sucesso! ${count} contas encontradas e sincronizadas.`
+        : 'Instagram conectado com sucesso! As postagens serao sincronizadas automaticamente.';
+      setMessage({ type: 'success', text });
       window.history.replaceState({}, '', '/contas');
       fetchContas();
     } else if (params.get('error')) {
@@ -148,7 +152,7 @@ export default function ContasSociaisPage() {
       <div className="animate-pulse space-y-6">
         <div className="h-8 bg-gray-200 rounded w-48" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1,2].map(i => <div key={i} className="h-48 bg-gray-200 rounded-xl" />)}
+          {[1, 2].map(i => <div key={i} className="h-48 bg-gray-200 rounded-xl" />)}
         </div>
       </div>
     );
@@ -160,9 +164,8 @@ export default function ContasSociaisPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {message && (
-        <div className={`rounded-xl p-4 flex items-center justify-between ${
-          message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
+        <div className={`rounded-xl p-4 flex items-center justify-between ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
           <p className="text-sm">{message.text}</p>
           <button onClick={() => setMessage(null)} className="text-sm font-medium underline ml-4">Fechar</button>
         </div>

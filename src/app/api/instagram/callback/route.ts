@@ -36,8 +36,11 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + (longToken.expires_in || 5184000));
 
+    console.log(`[Instagram Callback] Found ${profiles.length} profiles:`, profiles.map(p => p.username));
+
     // Iterate through all found profiles and save/update them
     for (const profile of profiles) {
+      console.log(`[Instagram Callback] Processing profile: ${profile.username} (${profile.ig_user_id})`);
       const igData = {
         ig_user_id: profile.ig_user_id,
         access_token: longToken.access_token,
@@ -55,11 +58,13 @@ export async function GET(request: NextRequest) {
       });
 
       if (existing) {
+        console.log(`[Instagram Callback] Updating existing account ${existing.id}`);
         await prisma.contaSocial.update({
           where: { id: existing.id },
           data: igData,
         });
       } else {
+        console.log(`[Instagram Callback] Creating new account for ${profile.username}`);
         await prisma.contaSocial.create({
           data: {
             plataforma: 'instagram',
@@ -69,7 +74,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(`${appUrl}/contas?success=connected`);
+    return NextResponse.redirect(`${appUrl}/contas?success=connected&count=${profiles.length}`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Erro desconhecido';
     console.error('Instagram Callback Error:', error);
