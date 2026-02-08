@@ -359,6 +359,25 @@ export async function getDashboardStats(inicio?: string, fim?: string): Promise<
     colaborador: undefined,
   }));
 
+  // Posts per platform
+  const postagensPorPlataforma = await prisma.$queryRawUnsafe<{ plataforma: string; quantidade: bigint; visualizacoes: bigint }[]>(
+    `SELECT c.plataforma, COUNT(p.id)::bigint as quantidade, COALESCE(SUM(p.visualizacoes), 0)::bigint as visualizacoes
+     FROM contas_sociais c
+     LEFT JOIN postagens p ON c.id = p.conta_id ${platDateCondition}
+     GROUP BY c.plataforma
+     ORDER BY quantidade DESC`
+  );
+
+  // Posts per profile (connected account)
+  const postagensPorPerfil = await prisma.$queryRawUnsafe<{ nome_perfil: string; username: string; plataforma: string; quantidade: bigint; visualizacoes: bigint }[]>(
+    `SELECT c.nome_perfil, c.username, c.plataforma, COUNT(p.id)::bigint as quantidade, COALESCE(SUM(p.visualizacoes), 0)::bigint as visualizacoes
+     FROM contas_sociais c
+     LEFT JOIN postagens p ON c.id = p.conta_id ${platDateCondition}
+     WHERE c.ativa = true
+     GROUP BY c.id, c.nome_perfil, c.username, c.plataforma
+     ORDER BY quantidade DESC`
+  );
+
   return {
     total_visualizacoes: totalVisualizacoes._sum.visualizacoes || 0,
     total_comissoes: totalComissoes._sum.valor || 0,
@@ -370,5 +389,7 @@ export async function getDashboardStats(inicio?: string, fim?: string): Promise<
     comissoes_por_colaborador: comissoesPorColaborador,
     visualizacoes_por_plataforma: visualizacoesPorPlataforma.map((r) => ({ plataforma: r.plataforma, visualizacoes: Number(r.visualizacoes) })),
     top_postagens: topPostagens,
+    postagens_por_plataforma: postagensPorPlataforma.map((r) => ({ plataforma: r.plataforma, quantidade: Number(r.quantidade), visualizacoes: Number(r.visualizacoes) })),
+    postagens_por_perfil: postagensPorPerfil.map((r) => ({ nome_perfil: r.nome_perfil, username: r.username, plataforma: r.plataforma, quantidade: Number(r.quantidade), visualizacoes: Number(r.visualizacoes) })),
   };
 }

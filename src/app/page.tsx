@@ -5,7 +5,7 @@ import StatsCard from '@/components/StatsCard';
 import { SkeletonStats, SkeletonChart } from '@/components/Skeleton';
 import Badge from '@/components/Badge';
 import Avatar from '@/components/Avatar';
-import { Eye, DollarSign, FileVideo, Users, TrendingUp, BarChart3, Calendar } from 'lucide-react';
+import { Eye, DollarSign, FileVideo, Users, TrendingUp, BarChart3, Calendar, Instagram, Music2 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatCompactNumber, formatMonth, getGreeting, formatFullDate, getEngagementRate } from '@/lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -27,6 +27,8 @@ interface DashboardData {
     curtidas?: number; comentarios?: number; compartilhamentos?: number;
     categoria: string; conta_plataforma: string; colaborador_nome: string;
   }[];
+  postagens_por_plataforma: { plataforma: string; quantidade: number; visualizacoes: number }[];
+  postagens_por_perfil: { nome_perfil: string; username: string; plataforma: string; quantidade: number; visualizacoes: number }[];
 }
 
 type Preset = '7d' | '30d' | '90d' | 'year' | 'all';
@@ -333,6 +335,99 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* Posts by Platform & Profile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Posts by Platform */}
+        <div className="card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Postagens por Rede
+          </h3>
+          {(data.postagens_por_plataforma || []).length > 0 ? (
+            <div className="space-y-4">
+              {(data.postagens_por_plataforma || []).map((item) => {
+                const maxQtd = Math.max(...(data.postagens_por_plataforma || []).map(p => p.quantidade), 1);
+                const pct = (item.quantidade / maxQtd) * 100;
+                const isInsta = item.plataforma?.toLowerCase() === 'instagram';
+                return (
+                  <div key={item.plataforma} className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                        background: isInsta ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : '#010101',
+                      }}>
+                        {isInsta
+                          ? <Instagram className="w-4.5 h-4.5 text-white" />
+                          : <Music2 className="w-4.5 h-4.5 text-white" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>{item.plataforma}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatCompactNumber(item.visualizacoes)} views</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>{item.quantidade}</p>
+                        <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>posts</p>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-full h-1.5" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: isInsta ? '#E1306C' : 'var(--accent)' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
+              Nenhuma rede conectada
+            </div>
+          )}
+        </div>
+
+        {/* Posts by Profile */}
+        <div className="card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Postagens por Perfil
+          </h3>
+          {(data.postagens_por_perfil || []).length > 0 ? (
+            <div className="space-y-3 stagger-children">
+              {(data.postagens_por_perfil || []).map((item, idx) => {
+                const maxQtd = Math.max(...(data.postagens_por_perfil || []).map(p => p.quantidade), 1);
+                const pct = (item.quantidade / maxQtd) * 100;
+                const isInsta = item.plataforma?.toLowerCase() === 'instagram';
+                return (
+                  <div key={idx} className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{
+                        background: isInsta ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : '#010101',
+                      }}>
+                        {isInsta
+                          ? <Instagram className="w-4 h-4 text-white" />
+                          : <Music2 className="w-4 h-4 text-white" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.nome_perfil || item.username}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>@{item.username} · {formatCompactNumber(item.visualizacoes)} views</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{item.quantidade}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>posts</p>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-full h-1" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="h-1 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: isInsta ? '#E1306C' : 'var(--accent)' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
+              Nenhum perfil conectado
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
