@@ -51,12 +51,11 @@ export default function Sidebar() {
         {/* Logo */}
         <div className="p-5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
           <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'var(--accent)' }}
-            >
-              <TrendingUp className="w-5 h-5" style={{ color: 'var(--text-inverted)' }} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="CDR Logo"
+              className="w-10 h-10 rounded-xl object-contain shrink-0"
+            />
             {!collapsed && (
               <div className="min-w-0">
                 <h1 className="text-base font-bold text-white truncate">CDR Marketing</h1>
