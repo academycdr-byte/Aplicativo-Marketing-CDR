@@ -185,6 +185,20 @@ export default function ContasSociaisPage() {
             Conectar Instagram
           </button>
           <button
+            onClick={() => { window.location.href = '/api/tiktok/auth'; }}
+            className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-lg bg-black hover:opacity-80 transition-all shadow-sm"
+          >
+            <Music2 className="w-4 h-4" />
+            Conectar TikTok
+          </button>
+          <button
+            onClick={() => { window.location.href = '/api/tiktok/auth'; }}
+            className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-lg bg-black hover:opacity-80 transition-all shadow-sm"
+          >
+            <Music2 className="w-4 h-4" />
+            Conectar TikTok
+          </button>
+          <button
             onClick={() => { setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 }); setModalOpen(true); }}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
           >
@@ -325,7 +339,7 @@ function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onDisconnect, s
       )}
 
       <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
-        {isInstagram && (
+        {isInstagram ? (
           <div className="flex items-center gap-2">
             {isConnected ? (
               <>
@@ -341,6 +355,26 @@ function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onDisconnect, s
               <button onClick={() => onConnect(conta.id)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90 rounded-lg transition-all font-medium">
                 <Link className="w-3.5 h-3.5" />
                 Conectar via Instagram API
+              </button>
+            )}
+          </div>
+        ) : (
+          // TikTok Logic
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <>
+                <button disabled={true} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-400 bg-gray-50 rounded-lg cursor-not-allowed" title="Em breve">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Sincronizar (Em breve)
+                </button>
+                <button onClick={() => onDelete(conta.id)} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Desconectar">
+                  <Unlink className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button onClick={() => { window.location.href = '/api/tiktok/auth'; }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white bg-black hover:opacity-90 rounded-lg transition-all font-medium">
+                <Link className="w-3.5 h-3.5" />
+                Conectar via TikTok API
               </button>
             )}
           </div>
