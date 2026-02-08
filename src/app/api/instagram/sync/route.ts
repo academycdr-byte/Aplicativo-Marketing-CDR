@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token expirado. Reconecte a conta.' }, { status: 401 });
     }
 
-    const result = await syncAccount(conta.id, conta.access_token);
+    const result = await syncAccount(conta.id, conta.access_token, conta.ig_user_id!);
 
     // Update last sync timestamp
     await prisma.contaSocial.update({
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        const result = await syncAccount(conta.id, conta.access_token!);
+        const result = await syncAccount(conta.id, conta.access_token!, conta.ig_user_id!);
         await prisma.contaSocial.update({
           where: { id: conta.id },
           data: { last_sync_at: new Date() },
@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function syncAccount(contaId: number, accessToken: string) {
-  const posts = await fetchInstagramMedia(accessToken);
+async function syncAccount(contaId: number, accessToken: string, igUserId: string) {
+  const posts = await fetchInstagramMedia(accessToken, igUserId);
 
   // Get or create a default collaborator for auto-synced posts
   let defaultColaborador = await prisma.colaborador.findFirst({ where: { ativo: true }, orderBy: { id: 'asc' } });
