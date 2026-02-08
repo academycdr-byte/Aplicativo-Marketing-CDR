@@ -14,7 +14,7 @@ import { formatCompactNumber, formatDate, getRelativeTime, cn } from '@/lib/util
 
 interface Postagem {
   id: number; titulo: string; url: string; visualizacoes: number; curtidas: number; comentarios: number;
-  compartilhamentos: number; categoria: 'viral' | 'tecnico'; data_publicacao: string; conta_social_id: number;
+  compartilhamentos: number; categoria: 'viral' | 'tecnico'; data_publicacao: string; conta_id: number;
   colaborador_id: number; conta_plataforma: string; conta_nome: string; colaborador_nome: string;
 }
 
@@ -73,7 +73,7 @@ export default function PostagensPage() {
 
   const handleEdit = (post: Postagem) => {
     setEditando(post);
-    setForm({ titulo: post.titulo, url: post.url || '', visualizacoes: post.visualizacoes, curtidas: post.curtidas, comentarios: post.comentarios, compartilhamentos: post.compartilhamentos, categoria: post.categoria, data_publicacao: post.data_publicacao?.split('T')[0] || '', conta_social_id: String(post.conta_social_id), colaborador_id: String(post.colaborador_id) });
+    setForm({ titulo: post.titulo, url: post.url || '', visualizacoes: post.visualizacoes, curtidas: post.curtidas, comentarios: post.comentarios, compartilhamentos: post.compartilhamentos, categoria: post.categoria, data_publicacao: post.data_publicacao?.split('T')[0] || '', conta_social_id: String(post.conta_id), colaborador_id: String(post.colaborador_id) });
     setModalOpen(true);
   };
 
@@ -89,7 +89,7 @@ export default function PostagensPage() {
       result = result.filter(p => p.titulo.toLowerCase().includes(s) || p.colaborador_nome?.toLowerCase().includes(s) || p.conta_nome?.toLowerCase().includes(s));
     }
     if (filterPlataforma) result = result.filter(p => p.conta_plataforma === filterPlataforma);
-    if (filterPerfil) result = result.filter(p => String(p.conta_social_id) === filterPerfil);
+    if (filterPerfil) result = result.filter(p => String(p.conta_id) === filterPerfil);
     if (filterCategoria) result = result.filter(p => p.categoria === filterCategoria);
     result = [...result].sort((a, b) => sortBy === 'views' ? b.visualizacoes - a.visualizacoes : new Date(b.data_publicacao).getTime() - new Date(a.data_publicacao).getTime());
     return result;
