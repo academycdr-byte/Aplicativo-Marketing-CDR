@@ -119,3 +119,62 @@ export async function getTikTokProfile(accessToken: string): Promise<{
         follower_count: user.follower_count || 0,
     };
 }
+
+export async function fetchTikTokVideos(accessToken: string, cursor?: number): Promise<{
+    videos: any[];
+    cursor: number | null;
+    has_more: boolean;
+}> {
+    const fields = [
+        'id',
+        'create_time',
+        'cover_image_url',
+        'share_url',
+        'video_description',
+        'duration',
+        'height',
+        'width',
+        'title',
+        'embed_html',
+        'embed_link',
+        'like_count',
+        'comment_count',
+        'share_count',
+        'view_count'
+    ];
+
+    // Using POST to /video/list/ as per V2 API
+    const postBody: any = {
+        max_count: 20
+    };
+    if (cursor) postBody.cursor = cursor;
+
+    const response = await fetch(TIKTOK_VIDEO_LIST_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postBody)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        // If 401, token might be expired, but we handle refresh in the route
+        throw new Error(`Failed to fetch TikTok videos: ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.error && data.error.code !== 'ok') {
+        throw new Error(`TikTok API Error: ${data.error.message}`);
+    }
+
+    const videos = data.data.videos || [];
+
+    return {
+        videos: videos,
+        cursor: data.data.cursor,
+        has_more: data.data.has_more
+    };
+}

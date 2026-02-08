@@ -147,6 +147,27 @@ export default function ContasSociaisPage() {
     fetchContas();
   };
 
+  const handleSyncTikTok = async (contaId: number) => {
+    setSyncing(contaId);
+    try {
+      const res = await fetch('/api/tiktok/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conta_id: contaId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: `TikTok Sincronizado: ${data.created} novos, ${data.updated} atualizados.` });
+        fetchContas();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Erro ao sincronizar TikTok' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Erro ao sincronizar TikTok' });
+    }
+    setSyncing(null);
+  };
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-6">
@@ -236,7 +257,7 @@ export default function ContasSociaisPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {instagramContas.map(conta => (
-                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onConnect={handleConnect} onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
+                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onConnect={handleConnect} onSync={handleSync} onSyncTikTok={handleSyncTikTok} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
                 ))}
               </div>
             </div>
@@ -253,7 +274,7 @@ export default function ContasSociaisPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {tiktokContas.map(conta => (
-                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onConnect={handleConnect} onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
+                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onConnect={handleConnect} onSync={handleSync} onSyncTikTok={handleSyncTikTok} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
                 ))}
               </div>
             </div>
@@ -299,9 +320,9 @@ export default function ContasSociaisPage() {
   );
 }
 
-function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onDisconnect, syncing }: {
+function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onSyncTikTok, onDisconnect, syncing }: {
   conta: ContaSocial; onEdit: (c: ContaSocial) => void; onDelete: (id: number) => void;
-  onConnect: (id: number) => void; onSync: (id: number) => void; onDisconnect: (c: ContaSocial) => void; syncing: boolean;
+  onConnect: (id: number) => void; onSync: (id: number) => void; onSyncTikTok: (id: number) => void; onDisconnect: (c: ContaSocial) => void; syncing: boolean;
 }) {
   const isInstagram = conta.plataforma === 'instagram';
   const isConnected = !!conta.ig_user_id;
