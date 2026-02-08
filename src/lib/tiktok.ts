@@ -1,180 +1,156 @@
+// TikTok API v2 Integration
+// Docs: https://developers.tiktok.com/doc/login-kit-web
+
 const TIKTOK_CLIENT_KEY = process.env.TIKTOK_CLIENT_KEY!;
 const TIKTOK_CLIENT_SECRET = process.env.TIKTOK_CLIENT_SECRET!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-const TIKTOK_AUTH_URL = 'https://www.tiktok.com/v2/auth/authorize/';
-const TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
-const TIKTOK_USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
-const TIKTOK_VIDEO_LIST_URL = 'https://open.tiktokapis.com/v2/video/list/';
+export function getTikTokOAuthUrl(state: string | number): string {
+  const redirectUri = `${APP_URL}/api/tiktok/callback`;
+  const scopes = 'user.info.basic,user.info.profile,user.info.stats,video.list';
+  const csrfState = String(state);
 
-export function getTikTokAuthUrl(state: string | number): string {
-    const redirectUri = `${APP_URL}/api/tiktok/callback`;
-    const scopes = 'user.info.basic,user.info.stats,video.list';
-
-    const params = new URLSearchParams({
-        client_key: TIKTOK_CLIENT_KEY,
-        response_type: 'code',
-        scope: scopes,
-        redirect_uri: redirectUri,
-        state: state.toString(),
-    });
-
-    return `${TIKTOK_AUTH_URL}?${params.toString()}`;
+  return `https://www.tiktok.com/v2/auth/authorize?client_key=${TIKTOK_CLIENT_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${csrfState}`;
 }
 
-export async function exchangeTikTokCode(code: string): Promise<{
-    access_token: string;
-    expires_in: number;
-    refresh_token: string;
-    refresh_expires_in: number;
-    open_id: string; // user id
-}> {
-    const redirectUri = `${APP_URL}/api/tiktok/callback`;
-
-    const params = new URLSearchParams();
-    params.append('client_key', TIKTOK_CLIENT_KEY);
-    params.append('client_secret', TIKTOK_CLIENT_SECRET);
-    params.append('code', code);
-    params.append('grant_type', 'authorization_code');
-    params.append('redirect_uri', redirectUri);
-
-    const response = await fetch(TIKTOK_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Cache-Control': 'no-cache',
-        },
-        body: params,
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`TikTok Token Exchange Failed: ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (data.error_code && data.error_code !== 0) {
-        throw new Error(`TikTok Error ${data.error_code}: ${data.message}`);
-    }
-
-    return data.data; // TikTok wraps response in 'data' object
+interface TikTokTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  open_id: string;
+  expires_in: number;
+  refresh_expires_in: number;
+  token_type: string;
 }
 
-export async function refreshTikTokToken(refreshToken: string): Promise<{
-    access_token: string;
-    expires_in: number;
-    refresh_token: string;
-    refresh_expires_in: number;
-    open_id: string;
-}> {
-    const params = new URLSearchParams();
-    params.append('client_key', TIKTOK_CLIENT_KEY);
-    params.append('client_secret', TIKTOK_CLIENT_SECRET);
-    params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', refreshToken);
+export async function exchangeTikTokCode(code: string): Promise<TikTokTokenResponse> {
+  const redirectUri = `${APP_URL}/api/tiktok/callback`;
 
-    const response = await fetch(TIKTOK_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-    });
+  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_key: TIKTOK_CLIENT_KEY,
+      client_secret: TIKTOK_CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }),
+  });
 
-    if (!response.ok) {
-        throw new Error('Failed to refresh TikTok token');
-    }
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TikTok token exchange failed: ${err}`);
+  }
 
-    const data = await response.json();
-    return data.data;
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(`TikTok error: ${data.error_description || data.error}`);
+  }
+  return data;
+}
+
+export async function refreshTikTokToken(refreshToken: string): Promise<TikTokTokenResponse> {
+  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_key: TIKTOK_CLIENT_KEY,
+      client_secret: TIKTOK_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TikTok token refresh failed: ${err}`);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(`TikTok refresh error: ${data.error_description || data.error}`);
+  }
+  return data;
 }
 
 export async function getTikTokProfile(accessToken: string): Promise<{
-    avatar_url: string;
-    display_name: string;
-    username: string; // Note: TikTok API doesn't always performantly give username, usually display_name
-    follower_count: number;
+  open_id: string;
+  display_name: string;
+  username: string;
+  avatar_url: string;
+  follower_count: number;
 }> {
-    const fields = ['avatar_url', 'display_name', 'follower_count'];
-    const url = `${TIKTOK_USER_INFO_URL}?fields=${fields.join(',')}`;
+  const fields = 'open_id,display_name,username,avatar_url,follower_count';
+  const res = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${fields}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 
-    const response = await fetch(url, {
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-        },
-    });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TikTok profile fetch failed: ${err}`);
+  }
 
-    if (!response.ok) {
-        throw new Error('Failed to fetch TikTok profile');
-    }
+  const data = await res.json();
+  if (data.error?.code !== 'ok' && data.error?.code) {
+    throw new Error(`TikTok error: ${data.error.message}`);
+  }
 
-    const data = await response.json();
-    const user = data.data.user;
-
-    return {
-        avatar_url: user.avatar_url,
-        display_name: user.display_name,
-        username: user.display_name, // Mapping display_name to username as fallback
-        follower_count: user.follower_count || 0,
-    };
+  const user = data.data?.user || {};
+  return {
+    open_id: user.open_id || '',
+    display_name: user.display_name || user.username || '',
+    username: user.username || '',
+    avatar_url: user.avatar_url || '',
+    follower_count: user.follower_count || 0,
+  };
 }
 
-export async function fetchTikTokVideos(accessToken: string, cursor?: number): Promise<{
-    videos: any[];
-    cursor: number | null;
-    has_more: boolean;
-}> {
-    const fields = [
-        'id',
-        'create_time',
-        'cover_image_url',
-        'share_url',
-        'video_description',
-        'duration',
-        'height',
-        'width',
-        'title',
-        'embed_html',
-        'embed_link',
-        'like_count',
-        'comment_count',
-        'share_count',
-        'view_count'
-    ];
+export interface TikTokVideo {
+  external_id: string;
+  titulo: string;
+  url: string;
+  thumbnail_url: string;
+  categoria: string;
+  visualizacoes: number;
+  curtidas: number;
+  comentarios: number;
+  compartilhamentos: number;
+  data_postagem: string;
+}
 
-    // Using POST to /video/list/ as per V2 API
-    const postBody: any = {
-        max_count: 20
-    };
-    if (cursor) postBody.cursor = cursor;
+export async function fetchTikTokVideos(accessToken: string): Promise<TikTokVideo[]> {
+  const fields = 'id,title,video_description,share_url,cover_image_url,create_time,like_count,comment_count,share_count,view_count,duration';
 
-    const response = await fetch(TIKTOK_VIDEO_LIST_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(postBody)
-    });
+  const res = await fetch(`https://open.tiktokapis.com/v2/video/list/?fields=${fields}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ max_count: 20 }),
+  });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        // If 401, token might be expired, but we handle refresh in the route
-        throw new Error(`Failed to fetch TikTok videos: ${errorText}`);
-    }
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TikTok video fetch failed: ${err}`);
+  }
 
-    const data = await response.json();
+  const data = await res.json();
+  if (data.error?.code !== 'ok' && data.error?.code) {
+    throw new Error(`TikTok error: ${data.error.message}`);
+  }
 
-    if (data.error && data.error.code !== 'ok') {
-        throw new Error(`TikTok API Error: ${data.error.message}`);
-    }
-
-    const videos = data.data.videos || [];
-
-    return {
-        videos: videos,
-        cursor: data.data.cursor,
-        has_more: data.data.has_more
-    };
+  const videos = data.data?.videos || [];
+  return videos.map((v: Record<string, unknown>) => ({
+    external_id: `tiktok_${v.id}`,
+    titulo: ((v.title as string) || (v.video_description as string) || '').slice(0, 200) || 'TikTok Video',
+    url: (v.share_url as string) || '',
+    thumbnail_url: (v.cover_image_url as string) || '',
+    categoria: 'viral',
+    visualizacoes: (v.view_count as number) || 0,
+    curtidas: (v.like_count as number) || 0,
+    comentarios: (v.comment_count as number) || 0,
+    compartilhamentos: (v.share_count as number) || 0,
+    data_postagem: new Date(((v.create_time as number) || 0) * 1000).toISOString().split('T')[0],
+  }));
 }

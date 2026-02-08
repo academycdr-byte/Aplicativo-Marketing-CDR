@@ -3,69 +3,70 @@ import { exchangeTikTokCode, getTikTokProfile } from '@/lib/tiktok';
 import { prisma } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    const error = searchParams.get('error');
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    if (error) {
-        return NextResponse.redirect(new URL('/contas?error=tiktok_auth_failed', request.url));
-    }
+  if (!code) {
+    const error = searchParams.get('error') || 'missing_code';
+    return NextResponse.redirect(`${appUrl}/contas?error=${encodeURIComponent(error)}`);
+  }
 
-    if (!code) {
-        return NextResponse.redirect(new URL('/contas?error=no_code', request.url));
-    }
+  try {
+    // Exchange code for tokens
+    const tokens = await exchangeTikTokCode(code);
 
-    try {
-        // 1. Exchange code for access token
-        const tokenData = await exchangeTikTokCode(code);
+    // Get TikTok profile
+    const profile = await getTikTokProfile(tokens.access_token);
 
-        // 2. Fetch user profile
-        const userProfile = await getTikTokProfile(tokenData.access_token);
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expires_in);
 
-        // 3. Save to database
-        // Check if account already exists
-        const existingAccount = await prisma.contaSocial.findFirst({
-            where: {
-                plataforma: 'tiktok',
-                tiktok_user_id: tokenData.open_id,
-            },
+    const tiktokData = {
+      tiktok_open_id: tokens.open_id || profile.open_id,
+      tiktok_token: tokens.access_token,
+      tiktok_refresh: tokens.refresh_token,
+      tiktok_expires_at: expiresAt,
+      access_token: tokens.access_token,
+      token_expires_at: expiresAt,
+      auto_sync: true,
+      nome_perfil: profile.display_name,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      seguidores: profile.follower_count,
+    };
+
+    if (state && state !== 'new') {
+      // Update existing account
+      await prisma.contaSocial.update({
+        where: { id: parseInt(state) },
+        data: tiktokData,
+      });
+    } else {
+      // Check if account already exists
+      const existing = await prisma.contaSocial.findFirst({
+        where: { tiktok_open_id: tokens.open_id || profile.open_id },
+      });
+
+      if (existing) {
+        await prisma.contaSocial.update({
+          where: { id: existing.id },
+          data: tiktokData,
         });
-
-        if (existingAccount) {
-            await prisma.contaSocial.update({
-                where: { id: existingAccount.id },
-                data: {
-                    access_token: tokenData.access_token,
-                    refresh_token: tokenData.refresh_token,
-                    token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000),
-                    nome_perfil: userProfile.display_name,
-                    username: userProfile.username,
-                    avatar_url: userProfile.avatar_url,
-                    seguidores: userProfile.follower_count,
-                    ativa: true,
-                },
-            });
-        } else {
-            await prisma.contaSocial.create({
-                data: {
-                    plataforma: 'tiktok',
-                    tiktok_user_id: tokenData.open_id,
-                    access_token: tokenData.access_token,
-                    refresh_token: tokenData.refresh_token,
-                    token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000),
-                    nome_perfil: userProfile.display_name,
-                    username: userProfile.username,
-                    avatar_url: userProfile.avatar_url,
-                    seguidores: userProfile.follower_count,
-                    ativa: true,
-                },
-            });
-        }
-
-        return NextResponse.redirect(new URL('/contas?success=tiktok_connected', request.url));
-
-    } catch (error) {
-        console.error('TikTok Auth Error:', error);
-        return NextResponse.redirect(new URL('/contas?error=tiktok_exception', request.url));
+      } else {
+        await prisma.contaSocial.create({
+          data: {
+            plataforma: 'tiktok',
+            ...tiktokData,
+          },
+        });
+      }
     }
+
+    return NextResponse.redirect(`${appUrl}/contas?success=tiktok_connected`);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.redirect(`${appUrl}/contas?error=${encodeURIComponent(msg)}`);
+  }
 }
