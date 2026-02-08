@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTikTokAuthUrl } from '@/lib/tiktok';
+import { getTikTokOAuthUrl } from '@/lib/tiktok';
 
 export async function GET(request: NextRequest) {
-    // Generate a random state for security
-    const state = Math.random().toString(36).substring(7);
+  const { searchParams } = new URL(request.url);
+  const contaId = searchParams.get('conta_id') || 'new';
 
-    // Get the authorization URL
-    const authUrl = getTikTokAuthUrl(state);
+  if (!process.env.TIKTOK_CLIENT_KEY || !process.env.TIKTOK_CLIENT_SECRET) {
+    return NextResponse.json({ error: 'TikTok App nao configurado. Adicione TIKTOK_CLIENT_KEY e TIKTOK_CLIENT_SECRET.' }, { status: 500 });
+  }
 
-    // Redirect the user to TikTok
-    return NextResponse.redirect(authUrl);
+  const url = getTikTokOAuthUrl(contaId);
+  return NextResponse.redirect(url);
 }

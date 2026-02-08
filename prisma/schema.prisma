@@ -43,6 +43,12 @@ model ContaSocial {
   auto_sync         Boolean    @default(false)
   last_sync_at      DateTime?
 
+  // TikTok API integration
+  tiktok_open_id    String?
+  tiktok_token      String?
+  tiktok_refresh    String?
+  tiktok_expires_at DateTime?
+
   postagens         Postagem[]
 
   @@map("contas_sociais")
