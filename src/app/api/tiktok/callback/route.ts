@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
                     avatar_url: userProfile.avatar_url,
                     seguidores: userProfile.follower_count,
                     ativa: true,
-                    updated_at: new Date(), // Implicit if @updatedAt exists, but safe to add
                 },
             });
         } else {
