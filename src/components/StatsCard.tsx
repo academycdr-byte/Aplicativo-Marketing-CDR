@@ -1,4 +1,5 @@
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
   title: string;
@@ -12,40 +13,34 @@ export default function StatsCard({ title, value, subtitle, icon: Icon, trend }:
   const trendPositive = trend && trend.value >= 0;
 
   return (
-    <div className="card card-hover p-5 md:p-6 animate-fade-in">
+    <div className="bg-bg-card border border-border-default rounded-[var(--radius-xl)] p-5 md:p-6 animate-fade-in transition-all duration-200 hover:border-border-strong hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
             {title}
           </p>
-          <p className="text-2xl md:text-3xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-2xl md:text-3xl font-bold mt-2 text-text-primary">
             {value}
           </p>
           {subtitle && (
-            <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-tertiary)' }}>{subtitle}</p>
+            <p className="text-xs mt-1 truncate text-text-tertiary">{subtitle}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1.5 mt-2">
               {trendPositive ? (
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                <TrendingUp className="w-3.5 h-3.5 text-success" />
               ) : (
-                <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
+                <TrendingDown className="w-3.5 h-3.5 text-error" />
               )}
-              <span
-                className="text-xs font-semibold"
-                style={{ color: trendPositive ? 'var(--success)' : 'var(--error)' }}
-              >
+              <span className={cn('text-xs font-semibold', trendPositive ? 'text-success' : 'text-error')}>
                 {trend.value >= 0 ? '+' : ''}{trend.value}%
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{trend.label}</span>
+              <span className="text-xs text-text-tertiary">{trend.label}</span>
             </div>
           )}
         </div>
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'var(--accent-surface)' }}
-        >
-          <Icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+        <div className="w-11 h-11 rounded-[var(--radius-xl)] flex items-center justify-center shrink-0 bg-accent-surface">
+          <Icon className="w-5 h-5 text-accent" />
         </div>
       </div>
     </div>

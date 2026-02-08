@@ -8,40 +8,40 @@ datasource db {
 }
 
 model Colaborador {
-  id         Int        @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   nome       String
   email      String
-  cargo      String     @default("Marketing")
-  ativo      Boolean    @default(true)
-  created_at DateTime   @default(now())
+  cargo      String   @default("Marketing")
+  ativo      Boolean  @default(true)
+  created_at DateTime @default(now())
 
-  postagens  Postagem[]
-  comissoes  Comissao[]
+  postagens Postagem[]
+  comissoes Comissao[]
 
   @@map("colaboradores")
 }
 
 model ContaSocial {
-  id                Int        @id @default(autoincrement())
-  plataforma        String
-  nome_perfil       String
-  username          String
-  avatar_url        String     @default("")
-  seguidores        Int        @default(0)
-  ativa             Boolean    @default(true)
-  created_at        DateTime   @default(now())
+  id          Int      @id @default(autoincrement())
+  plataforma  String
+  nome_perfil String
+  username    String
+  avatar_url  String   @default("")
+  seguidores  Int      @default(0)
+  ativa       Boolean  @default(true)
+  created_at  DateTime @default(now())
 
   // Instagram API integration
-  ig_user_id        String?
-  access_token      String?
-  token_expires_at  DateTime?
+  ig_user_id       String?
+  access_token     String?
+  token_expires_at DateTime?
 
   // TikTok API integration
-  tiktok_user_id    String?
-  refresh_token     String?
+  tiktok_user_id String?
+  refresh_token  String?
 
-  auto_sync         Boolean    @default(false)
-  last_sync_at      DateTime?
+  auto_sync    Boolean   @default(false)
+  last_sync_at DateTime?
 
   // TikTok API integration
   tiktok_open_id    String?
@@ -49,57 +49,153 @@ model ContaSocial {
   tiktok_refresh    String?
   tiktok_expires_at DateTime?
 
-  postagens         Postagem[]
+  postagens Postagem[]
 
   @@map("contas_sociais")
 }
 
 model Postagem {
-  id                 Int          @id @default(autoincrement())
-  conta_id           Int
-  colaborador_id     Int
-  titulo             String
-  url                String       @default("")
-  thumbnail_url      String       @default("")
-  categoria          String
-  visualizacoes      Int          @default(0)
-  curtidas           Int          @default(0)
-  comentarios        Int          @default(0)
-  compartilhamentos  Int          @default(0)
-  data_postagem      DateTime     @default(now()) @db.Date
-  created_at         DateTime     @default(now())
+  id                Int      @id @default(autoincrement())
+  conta_id          Int
+  colaborador_id    Int
+  titulo            String
+  url               String   @default("")
+  thumbnail_url     String   @default("")
+  categoria         String
+  visualizacoes     Int      @default(0)
+  curtidas          Int      @default(0)
+  comentarios       Int      @default(0)
+  compartilhamentos Int      @default(0)
+  data_postagem     DateTime @default(now()) @db.Date
+  created_at        DateTime @default(now())
 
   // Instagram API - external media ID for deduplication
-  external_id        String?      @unique
+  external_id String? @unique
 
-  conta              ContaSocial  @relation(fields: [conta_id], references: [id])
-  colaborador        Colaborador  @relation(fields: [colaborador_id], references: [id])
-  comissoes          Comissao[]
+  conta       ContaSocial @relation(fields: [conta_id], references: [id])
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+  comissoes   Comissao[]
 
   @@map("postagens")
 }
 
 model ConfiguracaoCPM {
-  id           Int      @id @default(autoincrement())
-  categoria    String   @unique
+  id            Int      @id @default(autoincrement())
+  categoria     String   @unique
   valor_por_cpm Float
-  updated_at   DateTime @default(now()) @updatedAt
+  updated_at    DateTime @default(now()) @updatedAt
 
   @@map("configuracoes_cpm")
 }
 
 model Comissao {
-  id              Int       @id @default(autoincrement())
-  colaborador_id  Int
-  postagem_id     Int
-  valor           Float
-  mes_referencia  String
-  pago            Boolean   @default(false)
-  data_pagamento  DateTime?
-  created_at      DateTime  @default(now())
+  id             Int       @id @default(autoincrement())
+  colaborador_id Int
+  postagem_id    Int
+  valor          Float
+  mes_referencia String
+  pago           Boolean   @default(false)
+  data_pagamento DateTime?
+  created_at     DateTime  @default(now())
 
-  colaborador     Colaborador @relation(fields: [colaborador_id], references: [id])
-  postagem        Postagem    @relation(fields: [postagem_id], references: [id])
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+  postagem    Postagem    @relation(fields: [postagem_id], references: [id])
 
   @@map("comissoes")
+}
+
+// ============ SHOPIFY INTEGRATION ============
+
+model LojaShopify {
+  id           Int       @id @default(autoincrement())
+  nome_loja    String
+  dominio      String    @unique
+  access_token String
+  api_version  String    @default("2024-10")
+  moeda        String    @default("BRL")
+  email_loja   String    @default("")
+  plano        String    @default("")
+  ativa        Boolean   @default(true)
+  auto_sync    Boolean   @default(false)
+  last_sync_at DateTime?
+  created_at   DateTime  @default(now())
+
+  pedidos  PedidoShopify[]
+  produtos ProdutoShopify[]
+  clientes ClienteShopify[]
+
+  @@map("lojas_shopify")
+}
+
+model PedidoShopify {
+  id                 Int      @id @default(autoincrement())
+  loja_id            Int
+  shopify_order_id   String   @unique
+  order_number       String
+  email_cliente      String   @default("")
+  nome_cliente       String   @default("")
+  valor_total        Float    @default(0)
+  valor_subtotal     Float    @default(0)
+  valor_desconto     Float    @default(0)
+  valor_frete        Float    @default(0)
+  valor_impostos     Float    @default(0)
+  moeda              String   @default("BRL")
+  status_financeiro  String   @default("")
+  status_fulfillment String   @default("")
+  itens_json         String   @default("[]")
+  quantidade_itens   Int      @default(0)
+  canal_vendas       String   @default("")
+  nota               String   @default("")
+  tags               String   @default("")
+  data_pedido        DateTime @db.Date
+  created_at         DateTime @default(now())
+
+  loja LojaShopify @relation(fields: [loja_id], references: [id], onDelete: Cascade)
+
+  @@map("pedidos_shopify")
+}
+
+model ProdutoShopify {
+  id                   Int      @id @default(autoincrement())
+  loja_id              Int
+  shopify_product_id   String   @unique
+  titulo               String
+  tipo_produto         String   @default("")
+  vendor               String   @default("")
+  status               String   @default("active")
+  tags                 String   @default("")
+  preco_min            Float    @default(0)
+  preco_max            Float    @default(0)
+  estoque_total        Int      @default(0)
+  variantes_json       String   @default("[]")
+  quantidade_variantes Int      @default(0)
+  imagem_url           String   @default("")
+  created_at           DateTime @default(now())
+  updated_at           DateTime @default(now()) @updatedAt
+
+  loja LojaShopify @relation(fields: [loja_id], references: [id], onDelete: Cascade)
+
+  @@map("produtos_shopify")
+}
+
+model ClienteShopify {
+  id                   Int       @id @default(autoincrement())
+  loja_id              Int
+  shopify_customer_id  String    @unique
+  nome                 String
+  email                String    @default("")
+  telefone             String    @default("")
+  cidade               String    @default("")
+  estado               String    @default("")
+  pais                 String    @default("")
+  total_pedidos        Int       @default(0)
+  total_gasto          Float     @default(0)
+  tags                 String    @default("")
+  data_primeiro_pedido DateTime? @db.Date
+  data_ultimo_pedido   DateTime? @db.Date
+  created_at           DateTime  @default(now())
+
+  loja LojaShopify @relation(fields: [loja_id], references: [id], onDelete: Cascade)
+
+  @@map("clientes_shopify")
 }

@@ -7,6 +7,9 @@ import Badge from '@/components/Badge';
 import { SkeletonCard } from '@/components/Skeleton';
 import { useToast } from '@/components/ToastProvider';
 import { useTheme } from '@/components/ThemeProvider';
+import { Button, Input, Select, Card } from '@/components/ui';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { FormField } from '@/components/ui/FormField';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface ConfiguracaoCPM {
@@ -30,7 +33,7 @@ export default function ConfiguracoesPage() {
     fetch('/api/configuracoes')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setConfigs(data); })
-      .catch(() => showToast('error', 'Erro ao carregar configurações'))
+      .catch(() => showToast('error', 'Erro ao carregar configuracoes'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -54,8 +57,8 @@ export default function ConfiguracoesPage() {
         });
         if (!res.ok) success = false;
       }
-      if (success) showToast('success', 'Configurações salvas!');
-      else showToast('error', 'Erro ao salvar algumas configurações');
+      if (success) showToast('success', 'Configuracoes salvas!');
+      else showToast('error', 'Erro ao salvar algumas configuracoes');
     } catch {
       showToast('error', 'Erro ao salvar');
     }
@@ -65,13 +68,19 @@ export default function ConfiguracoesPage() {
   const simCPM = getConfigValue(simCategoria);
   const simComissao = (simViews / 1000) * simCPM;
 
+  const themeOptions = [
+    { value: 'dark' as const, label: 'Escuro', icon: Moon },
+    { value: 'light' as const, label: 'Claro', icon: Sun },
+    { value: 'system' as const, label: 'Sistema', icon: Monitor },
+  ];
+
   return (
     <div className="space-y-8 animate-fade-in">
-      <PageHeader title="Configurações" subtitle="Valores de CPM e preferências do sistema"
+      <PageHeader title="Configuracoes" subtitle="Valores de CPM e preferencias do sistema"
         actions={
-          <button onClick={handleSave} disabled={saving} className="btn-accent flex items-center gap-2">
-            <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar'}
-          </button>
+          <Button variant="accent" icon={Save} onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </Button>
         }
       />
 
@@ -84,20 +93,20 @@ export default function ConfiguracoesPage() {
           {/* CPM Configuration */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <DollarSign className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Valores de CPM</h2>
+              <DollarSign className="w-5 h-5 text-accent" />
+              <h2 className="text-lg font-semibold text-text-primary">Valores de CPM</h2>
             </div>
-            <div className="card p-6">
+            <Card className="p-6">
               <div className="space-y-6">
                 {configs.map(config => (
                   <div key={config.categoria}>
                     <div className="flex items-center justify-between mb-3">
-                      <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                      <label className="text-sm font-medium flex items-center gap-2 text-text-secondary">
                         <Badge variant={config.categoria === 'viral' ? 'viral' : 'tecnico'}>
-                          {config.categoria === 'viral' ? '🔥 Viral' : '📐 Técnico'}
+                          {config.categoria === 'viral' ? 'Viral' : 'Tecnico'}
                         </Badge>
                       </label>
-                      <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                      <span className="text-lg font-bold text-accent">
                         {formatCurrency(config.valor_por_cpm)}
                       </span>
                     </div>
@@ -110,81 +119,68 @@ export default function ConfiguracoesPage() {
                           background: `linear-gradient(to right, var(--accent) ${config.valor_por_cpm}%, var(--bg-hover) ${config.valor_por_cpm}%)`,
                         }}
                       />
-                      <input
-                        type="number" min="0" step="0.5" value={config.valor_por_cpm}
+                      <Input
+                        type="number" min={0} step={0.5} value={config.valor_por_cpm}
                         onChange={e => updateLocalConfig(config.categoria, parseFloat(e.target.value) || 0)}
-                        className="input text-center w-24"
+                        className="text-center w-24"
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </section>
 
           {/* Simulator */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Calculator className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Simulador de Comissão</h2>
+              <Calculator className="w-5 h-5 text-accent" />
+              <h2 className="text-lg font-semibold text-text-primary">Simulador de Comissao</h2>
             </div>
-            <div className="card p-6">
+            <Card className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Categoria</label>
-                  <select className="input" value={simCategoria} onChange={e => setSimCategoria(e.target.value)}>
+                <FormField label="Categoria" htmlFor="sim-categoria">
+                  <Select id="sim-categoria" value={simCategoria} onChange={e => setSimCategoria(e.target.value)}>
                     <option value="viral">Viral</option>
-                    <option value="tecnico">Técnico</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Visualizações</label>
-                  <input className="input" type="number" min="0" step="1000" value={simViews} onChange={e => setSimViews(parseInt(e.target.value) || 0)} />
-                </div>
+                    <option value="tecnico">Tecnico</option>
+                  </Select>
+                </FormField>
+                <FormField label="Visualizacoes" htmlFor="sim-views">
+                  <Input id="sim-views" type="number" min={0} step={1000} value={simViews} onChange={e => setSimViews(parseInt(e.target.value) || 0)} />
+                </FormField>
               </div>
 
               {/* Result */}
-              <div className="rounded-xl p-5 text-center" style={{ background: 'var(--accent-surface)', border: '1px solid var(--accent)' }}>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Comissão estimada</p>
-                <p className="text-3xl font-bold mt-1" style={{ color: 'var(--accent)' }}>{formatCurrency(simComissao)}</p>
-                <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
-                  {formatNumber(simViews)} views × {formatCurrency(simCPM)} CPM = {formatCurrency(simComissao)}
+              <div className="rounded-xl p-5 text-center bg-accent-surface border border-accent">
+                <p className="text-sm font-medium text-text-secondary">Comissao estimada</p>
+                <p className="text-3xl font-bold mt-1 text-accent">{formatCurrency(simComissao)}</p>
+                <p className="text-xs mt-2 text-text-tertiary">
+                  {formatNumber(simViews)} views x {formatCurrency(simCPM)} CPM = {formatCurrency(simComissao)}
                 </p>
               </div>
-            </div>
+            </Card>
           </section>
 
           {/* Preferences */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Settings className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Preferências</h2>
+              <Settings className="w-5 h-5 text-accent" />
+              <h2 className="text-lg font-semibold text-text-primary">Preferencias</h2>
             </div>
-            <div className="card p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Aparência</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Escolha o tema do sistema</p>
+                  <p className="text-sm font-medium text-text-primary">Aparencia</p>
+                  <p className="text-xs mt-0.5 text-text-tertiary">Escolha o tema do sistema</p>
                 </div>
-                <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
-                  {([
-                    { value: 'dark' as const, icon: Moon, label: 'Escuro' },
-                    { value: 'light' as const, icon: Sun, label: 'Claro' },
-                    { value: 'system' as const, icon: Monitor, label: 'Sistema' },
-                  ]).map(opt => (
-                    <button key={opt.value} onClick={() => setTheme(opt.value)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                      style={{
-                        background: theme === opt.value ? 'var(--bg-card)' : 'transparent',
-                        color: theme === opt.value ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                        boxShadow: theme === opt.value ? 'var(--shadow-sm)' : 'none',
-                      }}>
-                      <opt.icon className="w-3.5 h-3.5" /> {opt.label}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  options={themeOptions}
+                  value={theme}
+                  onChange={setTheme}
+                  size="sm"
+                />
               </div>
-            </div>
+            </Card>
           </section>
         </>
       )}

@@ -1,4 +1,4 @@
-import { getInitials, hashColor } from '@/lib/utils';
+import { getInitials, hashColor, cn } from '@/lib/utils';
 
 interface AvatarProps {
     name: string;
@@ -6,15 +6,14 @@ interface AvatarProps {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-const sizes = {
-    sm: { wh: 32, font: 12 },
-    md: { wh: 40, font: 14 },
-    lg: { wh: 48, font: 16 },
-    xl: { wh: 64, font: 20 },
+const sizeClasses: Record<string, string> = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
+    xl: 'w-16 h-16 text-xl',
 };
 
 export default function Avatar({ name, src, size = 'md' }: AvatarProps) {
-    const s = sizes[size];
     const bg = hashColor(name);
     const initials = getInitials(name);
 
@@ -23,16 +22,18 @@ export default function Avatar({ name, src, size = 'md' }: AvatarProps) {
             <img
                 src={src}
                 alt={name}
-                className="rounded-full object-cover"
-                style={{ width: s.wh, height: s.wh }}
+                className={cn('rounded-full object-cover', sizeClasses[size])}
             />
         );
     }
 
     return (
         <div
-            className="rounded-full flex items-center justify-center font-bold text-white shrink-0"
-            style={{ width: s.wh, height: s.wh, background: bg, fontSize: s.font }}
+            className={cn(
+                'rounded-full flex items-center justify-center font-bold text-white shrink-0',
+                sizeClasses[size]
+            )}
+            style={{ background: bg }}
         >
             {initials}
         </div>

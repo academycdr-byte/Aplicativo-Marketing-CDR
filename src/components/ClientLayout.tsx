@@ -14,7 +14,7 @@ function LayoutInner({ children }: { children: ReactNode }) {
     const paddingTop = isMobile ? 56 : 0;
 
     return (
-        <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
+        <div className="min-h-screen bg-bg-primary">
             <Sidebar />
             <MobileHeader />
             <main

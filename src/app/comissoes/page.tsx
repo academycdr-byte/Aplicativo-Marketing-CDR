@@ -30,7 +30,7 @@ export default function ComissoesPage() {
       const res = await fetch(`/api/comissoes?mes=${mesAtual}`);
       const data = await res.json();
       if (Array.isArray(data)) setComissoes(data);
-    } catch { showToast('error', 'Erro ao carregar comissões'); }
+    } catch { showToast('error', 'Erro ao carregar comissoes'); }
     finally { setLoading(false); }
   };
 
@@ -39,9 +39,9 @@ export default function ComissoesPage() {
     try {
       const res = await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calcular', mes: mesAtual }) });
       const data = await res.json();
-      if (res.ok) { showToast('success', `${Array.isArray(data) ? data.length : 0} comissões calculadas!`); fetchComissoes(); }
+      if (res.ok) { showToast('success', `${Array.isArray(data) ? data.length : 0} comissoes calculadas!`); fetchComissoes(); }
       else showToast('error', data.error || 'Erro ao calcular');
-    } catch { showToast('error', 'Erro ao calcular comissões'); }
+    } catch { showToast('error', 'Erro ao calcular comissoes'); }
     setLoading(false);
   };
 
@@ -59,7 +59,7 @@ export default function ComissoesPage() {
     for (const c of pendentes) {
       await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'marcar_pago', id: c.id }) });
     }
-    showToast('success', `${pendentes.length} comissões marcadas como pagas`);
+    showToast('success', `${pendentes.length} comissoes marcadas como pagas`);
     fetchComissoes();
   };
 
@@ -95,10 +95,10 @@ export default function ComissoesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Comissões" subtitle={`Referência: ${formatMonth(mesAtual)}`}
+      <PageHeader title="Comissoes" subtitle={`Referencia: ${formatMonth(mesAtual)}`}
         actions={
           <div className="flex items-center gap-3 flex-wrap">
-            <input type="month" className="input" style={{ width: 'auto' }} value={mesAtual} onChange={e => setMesAtual(e.target.value)} />
+            <input type="month" className="input w-auto" value={mesAtual} onChange={e => setMesAtual(e.target.value)} />
             <button onClick={calcularComissoes} className="btn-accent flex items-center gap-2" disabled={loading}>
               <Calculator className="w-4 h-4" /> Calcular
             </button>
@@ -109,14 +109,14 @@ export default function ComissoesPage() {
       {/* Summary */}
       {loading ? <SkeletonStats /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
-          <StatsCard title="Total" value={formatCurrency(totais.total)} subtitle={`${totais.count} comissões`} icon={DollarSign} />
+          <StatsCard title="Total" value={formatCurrency(totais.total)} subtitle={`${totais.count} comissoes`} icon={DollarSign} />
           <StatsCard title="Pagas" value={formatCurrency(totais.pagas)} icon={Check} />
           <StatsCard title="Pendentes" value={formatCurrency(totais.pendentes)} icon={Clock} />
           <div className="card p-5 animate-fade-in">
-            <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Progresso</p>
-            <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>{pctPago}%</p>
-            <div className="w-full rounded-full h-2 mt-3" style={{ background: 'var(--bg-hover)' }}>
-              <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pctPago}%`, background: 'var(--accent)' }} />
+            <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">Progresso</p>
+            <p className="text-2xl font-bold mt-2 text-text-primary">{pctPago}%</p>
+            <div className="w-full rounded-full h-2 mt-3 bg-bg-hover">
+              <div className="h-2 rounded-full transition-all duration-700 bg-accent" style={{ width: `${pctPago}%` }} />
             </div>
           </div>
         </div>
@@ -124,14 +124,14 @@ export default function ComissoesPage() {
 
       {/* Search */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
         <input className="input pl-10" placeholder="Buscar colaborador..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {/* Accordion */}
       {loading ? <SkeletonTable /> : grouped.length === 0 ? (
-        <EmptyState icon={DollarSign} title="Nenhuma comissão" description="Calcule as comissões do mês selecionado."
-          action={{ label: 'Calcular Comissões', onClick: calcularComissoes }} />
+        <EmptyState icon={DollarSign} title="Nenhuma comissao" description="Calcule as comissoes do mes selecionado."
+          action={{ label: 'Calcular Comissoes', onClick: calcularComissoes }} />
       ) : (
         <div className="space-y-3 stagger-children">
           {grouped.map(([colabId, grp]) => {
@@ -141,58 +141,66 @@ export default function ComissoesPage() {
             return (
               <div key={colabId} className="card overflow-hidden animate-fade-in">
                 {/* Header */}
-                <button onClick={() => toggleExpand(colabId)} className="w-full flex items-center gap-4 p-4 transition-colors text-left"
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  {expanded ? <ChevronDown className="w-4 h-4 shrink-0" style={{ color: 'var(--text-tertiary)' }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--text-tertiary)' }} />}
+                <button onClick={() => toggleExpand(colabId)} className="w-full flex items-center gap-4 p-4 transition-colors text-left hover:bg-bg-hover">
+                  {expanded
+                    ? <ChevronDown className="w-4 h-4 shrink-0 text-text-tertiary" />
+                    : <ChevronRight className="w-4 h-4 shrink-0 text-text-tertiary" />
+                  }
                   <Avatar name={grp.nome} size="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{grp.nome}</span>
+                      <span className="text-sm font-semibold text-text-primary">{grp.nome}</span>
                       {pendentes > 0 && <Badge variant="warning">{pendentes} pendente{pendentes > 1 ? 's' : ''}</Badge>}
                       {pendentes === 0 && grp.comissoes.length > 0 && <Badge variant="success">Tudo pago</Badge>}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="flex-1 max-w-[120px] rounded-full h-1.5" style={{ background: 'var(--bg-hover)' }}>
-                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${pctGrp}%`, background: 'var(--accent)' }} />
+                      <div className="flex-1 max-w-[120px] rounded-full h-1.5 bg-bg-hover">
+                        <div className="h-1.5 rounded-full transition-all bg-accent" style={{ width: `${pctGrp}%` }} />
                       </div>
-                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{pctGrp}%</span>
+                      <span className="text-xs text-text-tertiary">{pctGrp}%</span>
                     </div>
                   </div>
-                  <span className="text-base font-bold shrink-0" style={{ color: 'var(--accent)' }}>{formatCurrency(grp.total)}</span>
+                  <span className="text-base font-bold shrink-0 text-accent">{formatCurrency(grp.total)}</span>
                 </button>
                 {/* Items */}
                 {expanded && (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="border-t border-border-default">
                     {pendentes > 0 && (
-                      <div className="px-4 py-2 flex justify-end" style={{ background: 'var(--bg-hover)' }}>
-                        <button onClick={() => pagarTodas(colabId)} className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--accent)', background: 'var(--accent-surface)' }}>
+                      <div className="px-4 py-2 flex justify-end bg-bg-hover">
+                        <button onClick={() => pagarTodas(colabId)} className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors text-accent bg-accent-surface hover:bg-accent-surface-hover">
                           Pagar todas ({pendentes})
                         </button>
                       </div>
                     )}
                     {grp.comissoes.map(c => (
-                      <div key={c.id} className="flex items-center gap-3 px-4 py-3 transition-colors"
-                        style={{ borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-3 transition-colors border-b border-border-default hover:bg-bg-hover">
                         <button onClick={() => togglePago(c)}
-                          className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all"
-                          style={{ borderColor: c.pago ? 'var(--accent)' : 'var(--border)', background: c.pago ? 'var(--accent)' : 'transparent' }}>
-                          {c.pago && <Check className="w-3 h-3" style={{ color: 'var(--text-inverted)' }} />}
+                          className={cn(
+                            'w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
+                            c.pago
+                              ? 'border-accent bg-accent'
+                              : 'border-border-default bg-transparent'
+                          )}>
+                          {c.pago && <Check className="w-3 h-3 text-text-inverted" />}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate" style={{ color: c.pago ? 'var(--text-tertiary)' : 'var(--text-primary)', textDecoration: c.pago ? 'line-through' : 'none' }}>
+                          <p className={cn(
+                            'text-sm truncate',
+                            c.pago ? 'text-text-tertiary line-through' : 'text-text-primary'
+                          )}>
                             {c.postagem_titulo}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant={c.postagem_categoria === 'viral' ? 'viral' : 'tecnico'} size="sm">{c.postagem_categoria === 'viral' ? 'Viral' : 'Técnico'}</Badge>
-                            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                            <Badge variant={c.postagem_categoria === 'viral' ? 'viral' : 'tecnico'} size="sm">{c.postagem_categoria === 'viral' ? 'Viral' : 'Tecnico'}</Badge>
+                            <span className="text-[11px] text-text-tertiary">
                               {formatNumber(c.postagem_visualizacoes)} views
                             </span>
                           </div>
                         </div>
-                        <span className="text-sm font-bold shrink-0" style={{ color: c.pago ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
+                        <span className={cn(
+                          'text-sm font-bold shrink-0',
+                          c.pago ? 'text-text-tertiary' : 'text-text-primary'
+                        )}>
                           {formatCurrency(c.valor)}
                         </span>
                       </div>

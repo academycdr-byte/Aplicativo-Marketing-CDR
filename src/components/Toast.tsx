@@ -1,6 +1,7 @@
 'use client';
 
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ToastProps {
     id: number;
@@ -16,34 +17,41 @@ const icons = {
     info: Info,
 };
 
-const styles = {
-    success: { border: 'var(--success)', bg: 'var(--success-surface)', color: 'var(--success)' },
-    error: { border: 'var(--error)', bg: 'var(--error-surface)', color: 'var(--error)' },
-    warning: { border: 'var(--warning)', bg: 'var(--warning-surface)', color: 'var(--warning)' },
-    info: { border: 'var(--info)', bg: 'var(--info-surface)', color: 'var(--info)' },
+const variantClasses: Record<string, string> = {
+    success: 'border-success',
+    error: 'border-error',
+    warning: 'border-warning',
+    info: 'border-info',
+};
+
+const iconClasses: Record<string, string> = {
+    success: 'text-success',
+    error: 'text-error',
+    warning: 'text-warning',
+    info: 'text-info',
 };
 
 export default function Toast({ type, message, onClose }: ToastProps) {
     const Icon = icons[type];
-    const style = styles[type];
 
     return (
         <div
-            className="animate-slide-in pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg"
-            style={{
-                background: 'var(--bg-elevated)',
-                borderColor: style.border,
-                boxShadow: 'var(--shadow-lg)',
-            }}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={cn(
+                'animate-slide-in pointer-events-auto flex items-start gap-3 p-4 rounded-[var(--radius-xl)] border shadow-[var(--shadow-lg)] bg-bg-elevated',
+                variantClasses[type]
+            )}
         >
-            <Icon className="w-5 h-5 mt-0.5 shrink-0" style={{ color: style.color }} />
-            <p className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>
+            <Icon className={cn('w-5 h-5 mt-0.5 shrink-0', iconClasses[type])} />
+            <p className="text-sm font-medium flex-1 text-text-primary">
                 {message}
             </p>
             <button
                 onClick={onClose}
-                className="shrink-0 p-1 rounded-lg hover:opacity-70 transition-opacity"
-                style={{ color: 'var(--text-tertiary)' }}
+                className="shrink-0 p-1 rounded-[var(--radius-lg)] text-text-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                aria-label="Fechar notificação"
             >
                 <X className="w-4 h-4" />
             </button>

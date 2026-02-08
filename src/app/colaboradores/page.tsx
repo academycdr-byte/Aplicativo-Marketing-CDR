@@ -10,7 +10,8 @@ import Badge from '@/components/Badge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { SkeletonCard } from '@/components/Skeleton';
 import { useToast } from '@/components/ToastProvider';
-import { formatDate } from '@/lib/utils';
+import { Button, Input, IconButton, FormField, Card } from '@/components/ui';
+import { cn, formatDate } from '@/lib/utils';
 
 interface Colaborador {
   id: number;
@@ -73,7 +74,7 @@ export default function ColaboradoresPage() {
   const handleDelete = async (id: number) => {
     try {
       await fetch('/api/colaboradores', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-      showToast('success', 'Colaborador excluído');
+      showToast('success', 'Colaborador excluido');
       fetchColaboradores();
     } catch {
       showToast('error', 'Erro ao excluir');
@@ -104,19 +105,19 @@ export default function ColaboradoresPage() {
         title="Colaboradores"
         subtitle={`${colaboradores.length} membros da equipe`}
         actions={
-          <button onClick={() => { setEditing(null); setForm({ nome: '', email: '', cargo: '' }); setModalOpen(true); }} className="btn-accent flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Novo Colaborador
-          </button>
+          <Button variant="accent" icon={Plus} onClick={() => { setEditing(null); setForm({ nome: '', email: '', cargo: '' }); setModalOpen(true); }}>
+            Novo Colaborador
+          </Button>
         }
       />
 
       {/* Search */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-        <input
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+        <Input
           type="text"
           placeholder="Buscar colaboradores..."
-          className="input pl-10"
+          className="pl-10"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -131,66 +132,64 @@ export default function ColaboradoresPage() {
         <EmptyState
           icon={Users}
           title="Nenhum colaborador"
-          description={search ? 'Nenhum resultado para esta busca.' : 'Adicione membros da equipe para começar.'}
+          description={search ? 'Nenhum resultado para esta busca.' : 'Adicione membros da equipe para comecar.'}
           action={!search ? { label: 'Adicionar Colaborador', onClick: () => setModalOpen(true) } : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {filtered.map((colab) => (
-            <div key={colab.id} className="card card-hover p-5 animate-fade-in">
+            <Card key={colab.id} hover className="p-5 animate-fade-in">
               <div className="flex items-start gap-4">
                 <Avatar name={colab.nome} size="lg" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{colab.nome}</h3>
+                    <h3 className="text-base font-semibold truncate text-text-primary">{colab.nome}</h3>
                     <Badge variant={colab.ativo ? 'success' : 'error'} size="sm">
                       {colab.ativo ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <Briefcase className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                    <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>{colab.cargo}</p>
+                    <Briefcase className="w-3.5 h-3.5 text-text-tertiary" />
+                    <p className="text-sm truncate text-text-secondary">{colab.cargo}</p>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <Mail className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                    <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>{colab.email}</p>
+                    <Mail className="w-3.5 h-3.5 text-text-tertiary" />
+                    <p className="text-xs truncate text-text-tertiary">{colab.email}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Desde {formatDate(colab.created_at)}</p>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border-default">
+                <p className="text-xs text-text-tertiary">Desde {formatDate(colab.created_at)}</p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handleToggleStatus(colab)}
-                    className="p-2 rounded-lg transition-colors text-xs font-medium"
-                    style={{ color: colab.ativo ? 'var(--warning)' : 'var(--success)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    className={cn(
+                      'p-2 rounded-lg transition-colors text-xs font-medium hover:bg-bg-hover',
+                      colab.ativo ? 'text-warning' : 'text-success'
+                    )}
                   >
                     {colab.ativo ? 'Desativar' : 'Ativar'}
                   </button>
-                  <button
+                  <IconButton
+                    icon={Pencil}
+                    variant="ghost"
+                    size="sm"
+                    label="Editar colaborador"
                     onClick={() => handleEdit(colab)}
-                    className="p-2 rounded-lg transition-colors"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; (e.currentTarget as HTMLElement).style.color = 'var(--info)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; }}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
+                    className="hover:text-info hover:bg-bg-hover"
+                  />
+                  <IconButton
+                    icon={Trash2}
+                    variant="ghost"
+                    size="sm"
+                    label="Excluir colaborador"
                     onClick={() => setConfirmDelete(colab.id)}
-                    className="p-2 rounded-lg transition-colors"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--error-surface)'; (e.currentTarget as HTMLElement).style.color = 'var(--error)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    className="hover:text-error hover:bg-error-surface"
+                  />
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -198,21 +197,18 @@ export default function ColaboradoresPage() {
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? 'Editar Colaborador' : 'Novo Colaborador'}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Nome</label>
-            <input className="input" required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Email</label>
-            <input className="input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Cargo</label>
-            <input className="input" required value={form.cargo} onChange={e => setForm({ ...form, cargo: e.target.value })} />
-          </div>
+          <FormField label="Nome" htmlFor="colab-nome" required>
+            <Input id="colab-nome" required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} />
+          </FormField>
+          <FormField label="Email" htmlFor="colab-email" required>
+            <Input id="colab-email" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </FormField>
+          <FormField label="Cargo" htmlFor="colab-cargo" required>
+            <Input id="colab-cargo" required value={form.cargo} onChange={e => setForm({ ...form, cargo: e.target.value })} />
+          </FormField>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost">Cancelar</button>
-            <button type="submit" className="btn-accent">{editing ? 'Salvar' : 'Adicionar'}</button>
+            <Button variant="ghost" type="button" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button variant="accent" type="submit">{editing ? 'Salvar' : 'Adicionar'}</Button>
           </div>
         </form>
       </Modal>
@@ -223,7 +219,7 @@ export default function ColaboradoresPage() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete); }}
         title="Excluir Colaborador"
-        message="Tem certeza que deseja excluir este colaborador? Esta ação não pode ser desfeita."
+        message="Tem certeza que deseja excluir este colaborador? Esta acao nao pode ser desfeita."
         confirmLabel="Excluir"
         variant="danger"
       />

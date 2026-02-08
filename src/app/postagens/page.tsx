@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { FileVideo, Eye, Heart, MessageCircle, Share, Search, LayoutGrid, List, Pencil, Trash2, Instagram, Music2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { FileVideo, Eye, Heart, MessageCircle, Share, Search, LayoutGrid, List, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import Modal from '@/components/Modal';
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
@@ -10,6 +10,7 @@ import Avatar from '@/components/Avatar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { SkeletonCard } from '@/components/Skeleton';
 import { useToast } from '@/components/ToastProvider';
+import { IconButton } from '@/components/ui';
 import { formatCompactNumber, formatDate, getRelativeTime, cn } from '@/lib/utils';
 
 interface Postagem {
@@ -79,7 +80,7 @@ export default function PostagensPage() {
   };
 
   const handleDelete = async (id: number) => {
-    try { await fetch(`/api/postagens?id=${id}`, { method: 'DELETE' }); showToast('success', 'Postagem excluída'); fetchPostagens(); }
+    try { await fetch(`/api/postagens?id=${id}`, { method: 'DELETE' }); showToast('success', 'Postagem excluida'); fetchPostagens(); }
     catch { showToast('error', 'Erro ao excluir'); }
   };
 
@@ -134,15 +135,15 @@ export default function PostagensPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
           <input className="input pl-10" placeholder="Buscar postagens..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="input" style={{ width: 'auto' }} value={filterPlataforma} onChange={e => { setFilterPlataforma(e.target.value); setFilterPerfil(''); }}>
+        <select className="input w-auto" value={filterPlataforma} onChange={e => { setFilterPlataforma(e.target.value); setFilterPerfil(''); }}>
           <option value="">Todas plataformas</option>
           <option value="instagram">Instagram</option>
           <option value="tiktok">TikTok</option>
         </select>
-        <select className="input" style={{ width: 'auto' }} value={filterPerfil} onChange={e => setFilterPerfil(e.target.value)}>
+        <select className="input w-auto" value={filterPerfil} onChange={e => setFilterPerfil(e.target.value)}>
           <option value="">Todos os perfis</option>
           {contas
             .filter(c => !filterPlataforma || c.plataforma === filterPlataforma)
@@ -150,24 +151,30 @@ export default function PostagensPage() {
               <option key={c.id} value={String(c.id)}>{c.nome_perfil} ({c.plataforma})</option>
             ))}
         </select>
-        <select className="input" style={{ width: 'auto' }} value={filterCategoria} onChange={e => setFilterCategoria(e.target.value)}>
+        <select className="input w-auto" value={filterCategoria} onChange={e => setFilterCategoria(e.target.value)}>
           <option value="">Todas categorias</option>
           <option value="viral">Viral</option>
-          <option value="tecnico">Técnico</option>
+          <option value="tecnico">Tecnico</option>
         </select>
-        <select className="input" style={{ width: 'auto' }} value={sortColumn === 'data_publicacao' ? 'recent' : sortColumn} onChange={e => { const v = e.target.value; if (v === 'recent') { setSortColumn('data_publicacao'); setSortDir('desc'); } else { setSortColumn(v); setSortDir('desc'); } }}>
+        <select className="input w-auto" value={sortColumn === 'data_publicacao' ? 'recent' : sortColumn} onChange={e => { const v = e.target.value; if (v === 'recent') { setSortColumn('data_publicacao'); setSortDir('desc'); } else { setSortColumn(v); setSortDir('desc'); } }}>
           <option value="recent">Mais recentes</option>
           <option value="visualizacoes">Mais views</option>
           <option value="curtidas">Mais curtidas</option>
           <option value="engajamento">Maior engajamento</option>
         </select>
-        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
-          <button onClick={() => setViewMode('grid')} className="p-2 rounded-md transition-all"
-            style={{ background: viewMode === 'grid' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-bg-hover">
+          <button onClick={() => setViewMode('grid')}
+            className={cn(
+              'p-2 rounded-md transition-all',
+              viewMode === 'grid' ? 'bg-bg-card text-text-primary' : 'text-text-tertiary'
+            )}>
             <LayoutGrid className="w-4 h-4" />
           </button>
-          <button onClick={() => setViewMode('list')} className="p-2 rounded-md transition-all"
-            style={{ background: viewMode === 'list' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+          <button onClick={() => setViewMode('list')}
+            className={cn(
+              'p-2 rounded-md transition-all',
+              viewMode === 'list' ? 'bg-bg-card text-text-primary' : 'text-text-tertiary'
+            )}>
             <List className="w-4 h-4" />
           </button>
         </div>
@@ -184,57 +191,62 @@ export default function PostagensPage() {
             <div key={post.id} className="card card-hover p-5 animate-fade-in flex flex-col">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{post.titulo}</h3>
+                  <h3 className="text-sm font-semibold truncate text-text-primary">{post.titulo}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>{post.categoria === 'viral' ? 'Viral' : 'Técnico'}</Badge>
+                    <Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>{post.categoria === 'viral' ? 'Viral' : 'Tecnico'}</Badge>
                     <Badge variant={post.conta_plataforma === 'instagram' ? 'instagram' : 'tiktok'}>
                       {post.conta_plataforma === 'instagram' ? 'IG' : 'TT'}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => handleEdit(post)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-tertiary)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--info)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; }}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => setConfirmDelete(post.id)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-tertiary)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--error)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; }}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <IconButton
+                    icon={Pencil}
+                    variant="ghost"
+                    size="sm"
+                    label="Editar postagem"
+                    onClick={() => handleEdit(post)}
+                    className="hover:text-info"
+                  />
+                  <IconButton
+                    icon={Trash2}
+                    variant="destructive"
+                    size="sm"
+                    label="Excluir postagem"
+                    onClick={() => setConfirmDelete(post.id)}
+                  />
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-4 gap-2 mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+              <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-border-default">
                 <div className="text-center">
-                  <Eye className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(post.visualizacoes)}</p>
+                  <Eye className="w-3.5 h-3.5 mx-auto mb-0.5 text-text-tertiary" />
+                  <p className="text-xs font-bold text-text-primary">{formatCompactNumber(post.visualizacoes)}</p>
                 </div>
                 <div className="text-center">
-                  <Heart className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: 'var(--error)' }} />
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(post.curtidas)}</p>
+                  <Heart className="w-3.5 h-3.5 mx-auto mb-0.5 text-error" />
+                  <p className="text-xs font-bold text-text-primary">{formatCompactNumber(post.curtidas)}</p>
                 </div>
                 <div className="text-center">
-                  <MessageCircle className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: 'var(--info)' }} />
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(post.comentarios)}</p>
+                  <MessageCircle className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
+                  <p className="text-xs font-bold text-text-primary">{formatCompactNumber(post.comentarios)}</p>
                 </div>
                 <div className="text-center">
-                  <Share className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: 'var(--success)' }} />
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(post.compartilhamentos)}</p>
+                  <Share className="w-3.5 h-3.5 mx-auto mb-0.5 text-success" />
+                  <p className="text-xs font-bold text-text-primary">{formatCompactNumber(post.compartilhamentos)}</p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border-default">
                 <div className="flex items-center gap-2 min-w-0">
                   <Avatar name={post.colaborador_nome || 'U'} size="sm" />
-                  <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{post.colaborador_nome}</span>
+                  <span className="text-xs truncate text-text-secondary">{post.colaborador_nome}</span>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>{engagementRate(post)}%</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>engajamento</p>
+                  <p className="text-xs font-semibold text-accent">{engagementRate(post)}%</p>
+                  <p className="text-[10px] text-text-tertiary">engajamento</p>
                 </div>
               </div>
             </div>
@@ -246,9 +258,9 @@ export default function PostagensPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr className="border-b border-border-default">
                   {[
-                    { label: 'Título', key: '' },
+                    { label: 'Titulo', key: '' },
                     { label: 'Plataforma', key: '' },
                     { label: 'Cat.', key: '' },
                     { label: 'Views', key: 'visualizacoes' },
@@ -261,8 +273,11 @@ export default function PostagensPage() {
                     { label: '', key: '' },
                   ].map((h, i) => (
                     <th key={i}
-                      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${h.key ? 'cursor-pointer select-none' : ''}`}
-                      style={{ color: sortColumn === h.key ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                      className={cn(
+                        'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider',
+                        h.key ? 'cursor-pointer select-none' : '',
+                        sortColumn === h.key ? 'text-accent' : 'text-text-tertiary'
+                      )}
                       onClick={() => h.key && handleSort(h.key)}
                     >
                       <span className="inline-flex items-center gap-1">
@@ -279,24 +294,21 @@ export default function PostagensPage() {
               </thead>
               <tbody className="stagger-children">
                 {filtered.map(post => (
-                  <tr key={post.id} className="animate-fade-in transition-colors"
-                    style={{ borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                    <td className="px-4 py-3"><span className="font-medium truncate block max-w-[200px]" style={{ color: 'var(--text-primary)' }}>{post.titulo}</span></td>
+                  <tr key={post.id} className="animate-fade-in transition-colors border-b border-border-default hover:bg-bg-hover">
+                    <td className="px-4 py-3"><span className="font-medium truncate block max-w-[200px] text-text-primary">{post.titulo}</span></td>
                     <td className="px-4 py-3"><Badge variant={post.conta_plataforma === 'instagram' ? 'instagram' : 'tiktok'}>{post.conta_plataforma === 'instagram' ? 'IG' : 'TT'}</Badge></td>
                     <td className="px-4 py-3"><Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>{post.categoria === 'viral' ? 'V' : 'T'}</Badge></td>
-                    <td className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(post.visualizacoes)}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{formatCompactNumber(post.curtidas)}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{formatCompactNumber(post.comentarios)}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{formatCompactNumber(post.compartilhamentos)}</td>
-                    <td className="px-4 py-3"><span className="font-semibold" style={{ color: 'var(--accent)' }}>{engagementRate(post)}%</span></td>
-                    <td className="px-4 py-3"><span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{post.colaborador_nome}</span></td>
-                    <td className="px-4 py-3"><span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{post.data_publicacao ? getRelativeTime(post.data_publicacao) : '-'}</span></td>
+                    <td className="px-4 py-3 font-semibold text-text-primary">{formatCompactNumber(post.visualizacoes)}</td>
+                    <td className="px-4 py-3 text-text-secondary">{formatCompactNumber(post.curtidas)}</td>
+                    <td className="px-4 py-3 text-text-secondary">{formatCompactNumber(post.comentarios)}</td>
+                    <td className="px-4 py-3 text-text-secondary">{formatCompactNumber(post.compartilhamentos)}</td>
+                    <td className="px-4 py-3"><span className="font-semibold text-accent">{engagementRate(post)}%</span></td>
+                    <td className="px-4 py-3"><span className="text-xs text-text-secondary">{post.colaborador_nome}</span></td>
+                    <td className="px-4 py-3"><span className="text-xs text-text-tertiary">{post.data_publicacao ? getRelativeTime(post.data_publicacao) : '-'}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => handleEdit(post)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-tertiary)' }}><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => setConfirmDelete(post.id)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-tertiary)' }}><Trash2 className="w-3.5 h-3.5" /></button>
+                        <IconButton icon={Pencil} variant="ghost" size="sm" label="Editar postagem" onClick={() => handleEdit(post)} />
+                        <IconButton icon={Trash2} variant="destructive" size="sm" label="Excluir postagem" onClick={() => setConfirmDelete(post.id)} />
                       </div>
                     </td>
                   </tr>
@@ -312,45 +324,45 @@ export default function PostagensPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Título</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">Titulo</label>
               <input className="input" required value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">URL</label>
               <input className="input" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Conta Social</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">Conta Social</label>
               <select className="input" required value={form.conta_social_id} onChange={e => setForm({ ...form, conta_social_id: e.target.value })}>
                 <option value="">Selecione...</option>
                 {contas.map(c => <option key={c.id} value={c.id}>{c.nome_perfil} ({c.plataforma})</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Colaborador</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">Colaborador</label>
               <select className="input" required value={form.colaborador_id} onChange={e => setForm({ ...form, colaborador_id: e.target.value })}>
                 <option value="">Selecione...</option>
                 {colaboradores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Categoria</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">Categoria</label>
               <div className="grid grid-cols-2 gap-2">
                 {(['viral', 'tecnico'] as const).map(cat => (
                   <button key={cat} type="button" onClick={() => setForm({ ...form, categoria: cat })}
-                    className="p-2.5 rounded-xl border-2 text-sm font-medium transition-all"
-                    style={{
-                      borderColor: form.categoria === cat ? 'var(--accent)' : 'var(--border)',
-                      background: form.categoria === cat ? 'var(--accent-surface)' : 'transparent',
-                      color: form.categoria === cat ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}>
-                    {cat === 'viral' ? '🔥 Viral' : '📐 Técnico'}
+                    className={cn(
+                      'p-2.5 rounded-xl border-2 text-sm font-medium transition-all',
+                      form.categoria === cat
+                        ? 'border-accent bg-accent-surface text-accent'
+                        : 'border-border-default bg-transparent text-text-secondary'
+                    )}>
+                    {cat === 'viral' ? 'Viral' : 'Tecnico'}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Data de Publicação</label>
+              <label className="block text-sm font-medium mb-1.5 text-text-secondary">Data de Publicacao</label>
               <input className="input" type="date" value={form.data_publicacao} onChange={e => setForm({ ...form, data_publicacao: e.target.value })} />
             </div>
           </div>
@@ -358,14 +370,14 @@ export default function PostagensPage() {
             {[
               { key: 'visualizacoes', label: 'Views', icon: Eye },
               { key: 'curtidas', label: 'Curtidas', icon: Heart },
-              { key: 'comentarios', label: 'Comentários', icon: MessageCircle },
+              { key: 'comentarios', label: 'Comentarios', icon: MessageCircle },
               { key: 'compartilhamentos', label: 'Comps.', icon: Share },
             ].map(({ key, label, icon: Icon }) => (
               <div key={key}>
-                <label className="flex items-center gap-1 text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                <label className="flex items-center gap-1 text-xs font-medium mb-1 text-text-tertiary">
                   <Icon className="w-3 h-3" /> {label}
                 </label>
-                <input className="input text-center" type="number" min="0" value={(form as any)[key]}
+                <input className="input text-center" type="number" min="0" value={(form as Record<string, unknown>)[key] as number}
                   onChange={e => setForm({ ...form, [key]: parseInt(e.target.value) || 0 })} />
               </div>
             ))}

@@ -76,3 +76,98 @@ export interface DashboardStats {
   visualizacoes_por_plataforma: { plataforma: string; visualizacoes: number }[];
   top_postagens: Postagem[];
 }
+
+// ============ SHOPIFY ============
+
+export interface LojaShopify {
+  id: number;
+  nome_loja: string;
+  dominio: string;
+  moeda: string;
+  email_loja: string;
+  plano: string;
+  ativa: boolean;
+  auto_sync: boolean;
+  last_sync_at: string | null;
+  created_at: string;
+  // Computed fields
+  total_pedidos?: number;
+  total_receita?: number;
+  total_produtos?: number;
+  total_clientes?: number;
+}
+
+export interface PedidoShopify {
+  id: number;
+  loja_id: number;
+  shopify_order_id: string;
+  order_number: string;
+  email_cliente: string;
+  nome_cliente: string;
+  valor_total: number;
+  valor_subtotal: number;
+  valor_desconto: number;
+  valor_frete: number;
+  valor_impostos: number;
+  moeda: string;
+  status_financeiro: string;
+  status_fulfillment: string;
+  quantidade_itens: number;
+  canal_vendas: string;
+  tags: string;
+  data_pedido: string;
+  created_at: string;
+  // Joined fields
+  loja_nome?: string;
+  loja_dominio?: string;
+}
+
+export interface ProdutoShopify {
+  id: number;
+  loja_id: number;
+  shopify_product_id: string;
+  titulo: string;
+  tipo_produto: string;
+  vendor: string;
+  status: string;
+  tags: string;
+  preco_min: number;
+  preco_max: number;
+  estoque_total: number;
+  quantidade_variantes: number;
+  imagem_url: string;
+  // Joined fields
+  loja_nome?: string;
+}
+
+export interface ClienteShopify {
+  id: number;
+  loja_id: number;
+  shopify_customer_id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  cidade: string;
+  estado: string;
+  pais: string;
+  total_pedidos: number;
+  total_gasto: number;
+  tags: string;
+  data_primeiro_pedido: string | null;
+  data_ultimo_pedido: string | null;
+  created_at: string;
+}
+
+export interface ShopifyDashboardStats {
+  total_receita: number;
+  total_pedidos: number;
+  ticket_medio: number;
+  total_produtos: number;
+  total_clientes: number;
+  pedidos_por_mes: { mes: string; quantidade: number; receita: number }[];
+  top_produtos: { titulo: string; quantidade_vendida: number; receita: number }[];
+  pedidos_por_status: { status: string; quantidade: number }[];
+  clientes_por_cidade: { cidade: string; quantidade: number }[];
+  receita_por_loja: { nome_loja: string; dominio: string; receita: number; pedidos: number }[];
+  produtos_baixo_estoque: ProdutoShopify[];
+}

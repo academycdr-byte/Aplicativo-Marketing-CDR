@@ -1,37 +1,36 @@
+import { cn } from '@/lib/utils';
+
 interface BadgeProps {
     children: React.ReactNode;
     variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'viral' | 'tecnico' | 'instagram' | 'tiktok' | 'accent';
     size?: 'sm' | 'md';
 }
 
-const variantStyles: Record<string, { bg: string; color: string }> = {
-    default: { bg: 'var(--bg-hover)', color: 'var(--text-secondary)' },
-    success: { bg: 'var(--success-surface)', color: 'var(--success)' },
-    warning: { bg: 'var(--warning-surface)', color: 'var(--warning)' },
-    error: { bg: 'var(--error-surface)', color: 'var(--error)' },
-    info: { bg: 'var(--info-surface)', color: 'var(--info)' },
-    viral: { bg: 'var(--viral-surface)', color: 'var(--viral)' },
-    tecnico: { bg: 'var(--tecnico-surface)', color: 'var(--tecnico)' },
-    instagram: { bg: 'var(--instagram-surface)', color: 'var(--instagram)' },
-    tiktok: { bg: 'var(--tiktok-surface)', color: 'var(--tiktok)' },
-    accent: { bg: 'var(--accent-surface)', color: 'var(--accent)' },
+const variantClasses: Record<string, string> = {
+    default: 'bg-bg-hover text-text-secondary',
+    success: 'bg-success-surface text-success',
+    warning: 'bg-warning-surface text-warning',
+    error: 'bg-error-surface text-error',
+    info: 'bg-info-surface text-info',
+    viral: 'bg-viral-surface text-viral',
+    tecnico: 'bg-tecnico-surface text-tecnico',
+    instagram: 'bg-instagram-surface text-instagram',
+    tiktok: 'bg-tiktok-surface text-tiktok',
+    accent: 'bg-accent-surface text-accent',
+};
+
+const sizeClasses: Record<string, string> = {
+    sm: 'px-2 py-0.5 text-[11px]',
+    md: 'px-3 py-1 text-xs',
 };
 
 export default function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps) {
-    const style = variantStyles[variant];
-    const padding = size === 'sm' ? '2px 8px' : '4px 12px';
-    const fontSize = size === 'sm' ? '11px' : '12px';
-
     return (
-        <span
-            className="badge"
-            style={{
-                background: style.bg,
-                color: style.color,
-                padding,
-                fontSize,
-            }}
-        >
+        <span className={cn(
+            'inline-flex items-center gap-1 rounded-[var(--radius-sm)] font-semibold leading-snug',
+            variantClasses[variant],
+            sizeClasses[size],
+        )}>
             {children}
         </span>
     );

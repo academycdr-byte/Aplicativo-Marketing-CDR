@@ -9,7 +9,8 @@ import Badge from '@/components/Badge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { SkeletonCard } from '@/components/Skeleton';
 import { useToast } from '@/components/ToastProvider';
-import { formatCompactNumber, getRelativeTime } from '@/lib/utils';
+import { IconButton } from '@/components/ui';
+import { formatCompactNumber, getRelativeTime, cn } from '@/lib/utils';
 
 interface ContaSocial {
   id: number;
@@ -87,7 +88,7 @@ export default function ContasSociaisPage() {
   const handleDelete = async (id: number) => {
     try {
       await fetch(`/api/contas?id=${id}`, { method: 'DELETE' });
-      showToast('success', 'Conta excluída');
+      showToast('success', 'Conta excluida');
       fetchContas();
     } catch { showToast('error', 'Erro ao excluir'); }
   };
@@ -136,14 +137,12 @@ export default function ContasSociaisPage() {
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => { window.location.href = '/api/instagram/auth'; }}
-              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-xl transition-all"
-              style={{ background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' }}
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-xl transition-all bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]"
             >
               <Instagram className="w-4 h-4" /> Instagram
             </button>
             <button onClick={() => { window.location.href = '/api/tiktok/auth'; }}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
-              style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all bg-text-primary text-bg-primary"
             >
               <Music2 className="w-4 h-4" /> TikTok
             </button>
@@ -168,10 +167,10 @@ export default function ContasSociaisPage() {
           {instagramContas.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]">
                   <Instagram className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Instagram</h2>
+                <h2 className="text-lg font-semibold text-text-primary">Instagram</h2>
                 <Badge variant="default">{instagramContas.length}</Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
@@ -189,10 +188,10 @@ export default function ContasSociaisPage() {
           {tiktokContas.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-text-primary text-bg-primary">
                   <Music2 className="w-4 h-4" />
                 </div>
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>TikTok</h2>
+                <h2 className="text-lg font-semibold text-text-primary">TikTok</h2>
                 <Badge variant="default">{tiktokContas.length}</Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
@@ -212,16 +211,16 @@ export default function ContasSociaisPage() {
       <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditando(null); }} title={editando ? 'Editar Conta' : 'Nova Conta Social'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Plataforma</label>
+            <label className="block text-sm font-medium mb-2 text-text-secondary">Plataforma</label>
             <div className="grid grid-cols-2 gap-3">
               {(['instagram', 'tiktok'] as const).map(p => (
                 <button key={p} type="button" onClick={() => setForm({ ...form, plataforma: p })}
-                  className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all text-sm font-medium"
-                  style={{
-                    borderColor: form.plataforma === p ? 'var(--accent)' : 'var(--border)',
-                    background: form.plataforma === p ? 'var(--accent-surface)' : 'transparent',
-                    color: form.plataforma === p ? 'var(--accent)' : 'var(--text-secondary)',
-                  }}>
+                  className={cn(
+                    'flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all text-sm font-medium',
+                    form.plataforma === p
+                      ? 'border-accent bg-accent-surface text-accent'
+                      : 'border-border-default bg-transparent text-text-secondary'
+                  )}>
                   {p === 'instagram' ? <Instagram className="w-4 h-4" /> : <Music2 className="w-4 h-4" />}
                   {p === 'instagram' ? 'Instagram' : 'TikTok'}
                 </button>
@@ -229,18 +228,18 @@ export default function ContasSociaisPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Nome do Perfil</label>
+            <label className="block text-sm font-medium mb-1.5 text-text-secondary">Nome do Perfil</label>
             <input className="input" required value={form.nome_perfil} onChange={e => setForm({ ...form, nome_perfil: e.target.value })} placeholder="Nome exibido no perfil" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Username</label>
+            <label className="block text-sm font-medium mb-1.5 text-text-secondary">Username</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-tertiary)' }}>@</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">@</span>
               <input className="input pl-8" required value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="username" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Seguidores</label>
+            <label className="block text-sm font-medium mb-1.5 text-text-secondary">Seguidores</label>
             <input className="input" type="number" min="0" value={form.seguidores} onChange={e => setForm({ ...form, seguidores: parseInt(e.target.value) || 0 })} />
           </div>
           <div className="flex justify-end gap-3 pt-2">
@@ -252,11 +251,11 @@ export default function ContasSociaisPage() {
 
       <ConfirmDialog isOpen={confirmDelete !== null} onClose={() => setConfirmDelete(null)}
         onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete); }}
-        title="Excluir Conta" message="Tem certeza? As postagens sincronizadas serão mantidas." confirmLabel="Excluir" variant="danger" />
+        title="Excluir Conta" message="Tem certeza? As postagens sincronizadas serao mantidas." confirmLabel="Excluir" variant="danger" />
 
       <ConfirmDialog isOpen={confirmDisconnect !== null} onClose={() => setConfirmDisconnect(null)}
         onConfirm={() => { if (confirmDisconnect) handleDisconnect(confirmDisconnect); }}
-        title="Desconectar Conta" message="Desconectar a API? As postagens já sincronizadas serão mantidas." confirmLabel="Desconectar" variant="warning" />
+        title="Desconectar Conta" message="Desconectar a API? As postagens ja sincronizadas serao mantidas." confirmLabel="Desconectar" variant="warning" />
     </div>
   );
 }
@@ -278,42 +277,51 @@ function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onSyncTikTok, o
     }
   }
 
-  const healthColors = { connected: 'var(--success)', expiring: 'var(--warning)', disconnected: 'var(--text-tertiary)' };
+  const healthStyles = {
+    connected: 'bg-success text-success',
+    expiring: 'bg-warning text-warning',
+    disconnected: 'bg-text-tertiary text-text-tertiary',
+  } as const;
+
   const healthLabels = { connected: 'Conectada', expiring: 'Token expirando', disconnected: 'Desconectada' };
 
   return (
     <div className="card card-hover p-5 animate-fade-in">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: isInstagram ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : 'var(--text-primary)' }}>
-            {isInstagram ? <Instagram className="w-5 h-5 text-white" /> : <Music2 className="w-5 h-5" style={{ color: 'var(--bg-primary)' }} />}
+          <div className={cn(
+            'w-11 h-11 rounded-xl flex items-center justify-center shrink-0',
+            isInstagram
+              ? 'bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]'
+              : 'bg-text-primary'
+          )}>
+            {isInstagram ? <Instagram className="w-5 h-5 text-white" /> : <Music2 className="w-5 h-5 text-bg-primary" />}
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{conta.nome_perfil}</h3>
-            <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>@{conta.username}</p>
+            <h3 className="text-sm font-semibold truncate text-text-primary">{conta.nome_perfil}</h3>
+            <p className="text-xs truncate text-text-tertiary">@{conta.username}</p>
           </div>
         </div>
         {/* Health dot */}
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full" style={{ background: healthColors[health] }} />
-          <span className="text-xs font-medium" style={{ color: healthColors[health] }}>{healthLabels[health]}</span>
+          <div className={cn('w-2 h-2 rounded-full', healthStyles[health].split(' ')[0])} />
+          <span className={cn('text-xs font-medium', healthStyles[health].split(' ')[1])}>{healthLabels[health]}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-4 mt-4">
         <div className="flex items-center gap-1.5">
-          <UsersIcon className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(conta.seguidores)}</span>
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>seguidores</span>
+          <UsersIcon className="w-3.5 h-3.5 text-text-tertiary" />
+          <span className="text-sm font-semibold text-text-primary">{formatCompactNumber(conta.seguidores)}</span>
+          <span className="text-xs text-text-tertiary">seguidores</span>
         </div>
       </div>
 
       {isConnected && conta.last_sync_at && (
-        <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>Último sync: {getRelativeTime(conta.last_sync_at)}</p>
+        <p className="text-xs mt-2 text-text-tertiary">Ultimo sync: {getRelativeTime(conta.last_sync_at)}</p>
       )}
 
-      <div className="mt-4 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border)' }}>
+      <div className="mt-4 pt-3 space-y-2 border-t border-border-default">
         {/* Sync / Connect */}
         <div className="flex items-center gap-2">
           {isConnected ? (
@@ -321,25 +329,28 @@ function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onSyncTikTok, o
               <button
                 onClick={() => isInstagram ? onSync(conta.id) : onSyncTikTok(conta.id)}
                 disabled={syncing}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all"
-                style={{ background: 'var(--accent-surface)', color: 'var(--accent)' }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all bg-accent-surface text-accent"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} />
                 {syncing ? 'Sincronizando...' : 'Sincronizar'}
               </button>
-              <button onClick={onDisconnect}
-                className="p-2 rounded-xl transition-colors"
-                style={{ color: 'var(--text-tertiary)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                title="Desconectar">
-                <Unlink className="w-4 h-4" />
-              </button>
+              <IconButton
+                icon={Unlink}
+                variant="ghost"
+                size="sm"
+                label="Desconectar"
+                onClick={onDisconnect}
+                className="rounded-xl"
+              />
             </>
           ) : (
             <button onClick={() => onConnect(conta.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl transition-all text-white"
-              style={{ background: isInstagram ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : 'var(--text-primary)' }}>
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl transition-all text-white',
+                isInstagram
+                  ? 'bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]'
+                  : 'bg-text-primary'
+              )}>
               <Link className="w-3.5 h-3.5" /> Conectar via API
             </button>
           )}
@@ -348,17 +359,11 @@ function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onSyncTikTok, o
         {/* Edit / Delete */}
         <div className="flex items-center gap-2">
           <button onClick={() => onEdit(conta)}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors text-text-secondary hover:bg-bg-hover">
             <Pencil className="w-3 h-3" /> Editar
           </button>
           <button onClick={onDelete}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors"
-            style={{ color: 'var(--error)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--error-surface)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors text-error hover:bg-error-surface">
             <Trash2 className="w-3 h-3" /> Excluir
           </button>
         </div>
