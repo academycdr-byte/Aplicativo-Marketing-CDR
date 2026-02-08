@@ -1,44 +1,51 @@
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
   icon: LucideIcon;
-  color: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'teal';
   trend?: { value: number; label: string };
 }
 
-const colorMap = {
-  blue: { bg: 'bg-blue-50', icon: 'bg-blue-500', text: 'text-blue-600' },
-  green: { bg: 'bg-green-50', icon: 'bg-green-500', text: 'text-green-600' },
-  purple: { bg: 'bg-purple-50', icon: 'bg-purple-500', text: 'text-purple-600' },
-  orange: { bg: 'bg-orange-50', icon: 'bg-orange-500', text: 'text-orange-600' },
-  red: { bg: 'bg-red-50', icon: 'bg-red-500', text: 'text-red-600' },
-  teal: { bg: 'bg-teal-50', icon: 'bg-teal-500', text: 'text-teal-600' },
-};
-
-export default function StatsCard({ title, value, subtitle, icon: Icon, color, trend }: StatsCardProps) {
-  const colors = colorMap[color];
+export default function StatsCard({ title, value, subtitle, icon: Icon, trend }: StatsCardProps) {
+  const trendPositive = trend && trend.value >= 0;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 card-hover">
+    <div className="card card-hover p-5 md:p-6 animate-fade-in">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+            {title}
+          </p>
+          <p className="text-2xl md:text-3xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
+            {value}
+          </p>
+          {subtitle && (
+            <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-tertiary)' }}>{subtitle}</p>
+          )}
           {trend && (
-            <div className="flex items-center gap-1 mt-2">
-              <span className={`text-xs font-medium ${trend.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="flex items-center gap-1.5 mt-2">
+              {trendPositive ? (
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+              ) : (
+                <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
+              )}
+              <span
+                className="text-xs font-semibold"
+                style={{ color: trendPositive ? 'var(--success)' : 'var(--error)' }}
+              >
                 {trend.value >= 0 ? '+' : ''}{trend.value}%
               </span>
-              <span className="text-xs text-gray-400">{trend.label}</span>
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{trend.label}</span>
             </div>
           )}
         </div>
-        <div className={`${colors.bg} p-3 rounded-xl`}>
-          <Icon className={`w-6 h-6 text-white ${colors.icon} rounded-lg p-0.5`} />
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'var(--accent-surface)' }}
+        >
+          <Icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
         </div>
       </div>
     </div>

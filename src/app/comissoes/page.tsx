@@ -1,292 +1,205 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { DollarSign, Calculator, Check, X, Filter, Download, Users, Eye, Calendar } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { DollarSign, Check, Clock, ChevronDown, ChevronRight, Users, Calculator, Search } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import PageHeader from '@/components/PageHeader';
+import Badge from '@/components/Badge';
+import Avatar from '@/components/Avatar';
+import StatsCard from '@/components/StatsCard';
+import { SkeletonStats, SkeletonTable } from '@/components/Skeleton';
+import { useToast } from '@/components/ToastProvider';
+import { formatCurrency, formatMonth, formatNumber, getCurrentMonth, cn } from '@/lib/utils';
 
 interface Comissao {
-  id: number;
-  colaborador_id: number;
-  postagem_id: number;
-  valor: number;
-  mes_referencia: string;
-  pago: number;
-  data_pagamento: string | null;
-  colaborador_nome: string;
-  postagem_titulo: string;
-  postagem_visualizacoes: number;
-  postagem_categoria: string;
-  conta_plataforma: string;
-}
-
-interface Colaborador { id: number; nome: string; }
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-BR').format(value);
-}
-
-function getCurrentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function formatMonthLabel(mes: string): string {
-  const [year, month] = mes.split('-');
-  const months = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  return `${months[parseInt(month) - 1]} ${year}`;
+  id: number; colaborador_id: number; colaborador_nome: string; postagem_id: number; postagem_titulo: string;
+  visualizacoes: number; categoria: string; cpm_valor: number; valor_comissao: number; mes_referencia: string; pago: number;
 }
 
 export default function ComissoesPage() {
   const [comissoes, setComissoes] = useState<Comissao[]>([]);
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(true);
-  const [calculating, setCalculating] = useState(false);
-  const [mesSelecionado, setMesSelecionado] = useState(getCurrentMonth());
-  const [filterColaborador, setFilterColaborador] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [mesAtual, setMesAtual] = useState(getCurrentMonth());
+  const [expandedColab, setExpandedColab] = useState<Set<number>>(new Set());
+  const [search, setSearch] = useState('');
+  const { showToast } = useToast();
 
   const fetchComissoes = async () => {
     try {
-      const params = new URLSearchParams();
-      if (mesSelecionado) params.set('mes', mesSelecionado);
-      if (filterColaborador) params.set('colaborador_id', filterColaborador);
-      if (filterStatus) params.set('pago', filterStatus);
+      const res = await fetch(`/api/comissoes?mes=${mesAtual}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setComissoes(data);
+    } catch { showToast('error', 'Erro ao carregar comissões'); }
+    finally { setLoading(false); }
+  };
 
-      const [comRes, colabRes] = await Promise.all([
-        fetch(`/api/comissoes?${params}`).then(r => r.ok ? r.json() : []),
-        fetch('/api/colaboradores').then(r => r.ok ? r.json() : []),
-      ]);
-      if (Array.isArray(comRes)) setComissoes(comRes);
-      if (Array.isArray(colabRes)) setColaboradores(colabRes);
-    } catch {}
+  const calcularComissoes = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mes: mesAtual }) });
+      const data = await res.json();
+      if (res.ok) { showToast('success', `${data.total_calculadas} comissões calculadas!`); fetchComissoes(); }
+      else showToast('error', data.error || 'Erro ao calcular');
+    } catch { showToast('error', 'Erro ao calcular comissões'); }
     setLoading(false);
   };
 
-  useEffect(() => { fetchComissoes(); }, [mesSelecionado, filterColaborador, filterStatus]);
+  const togglePago = async (comissao: Comissao) => {
+    try {
+      await fetch('/api/comissoes', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: comissao.id, pago: comissao.pago ? 0 : 1 }) });
+      showToast('success', comissao.pago ? 'Marcada como pendente' : 'Marcada como paga');
+      fetchComissoes();
+    } catch { showToast('error', 'Erro ao atualizar status'); }
+  };
 
-  const handleCalcular = async () => {
-    setCalculating(true);
-    await fetch('/api/comissoes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'calcular', mes: mesSelecionado }),
-    });
-    setCalculating(false);
+  const pagarTodas = async (colaboradorId: number) => {
+    const pendentes = comissoes.filter(c => c.colaborador_id === colaboradorId && !c.pago);
+    for (const c of pendentes) {
+      await fetch('/api/comissoes', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, pago: 1 }) });
+    }
+    showToast('success', `${pendentes.length} comissões marcadas como pagas`);
     fetchComissoes();
   };
 
-  const handleTogglePago = async (comissao: Comissao) => {
-    await fetch('/api/comissoes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: comissao.pago ? 'marcar_nao_pago' : 'marcar_pago',
-        id: comissao.id,
-      }),
-    });
-    fetchComissoes();
-  };
+  useEffect(() => { fetchComissoes(); }, [mesAtual]);
 
-  const totalComissoes = comissoes.reduce((acc, c) => acc + c.valor, 0);
-  const totalPago = comissoes.filter(c => c.pago).reduce((acc, c) => acc + c.valor, 0);
-  const totalPendente = comissoes.filter(c => !c.pago).reduce((acc, c) => acc + c.valor, 0);
+  const totais = useMemo(() => {
+    const total = comissoes.reduce((s, c) => s + c.valor_comissao, 0);
+    const pagas = comissoes.reduce((s, c) => s + (c.pago ? c.valor_comissao : 0), 0);
+    const pendentes = total - pagas;
+    return { total, pagas, pendentes, count: comissoes.length };
+  }, [comissoes]);
 
   // Group by collaborator
-  const comissoesPorColaborador: Record<string, { nome: string; total: number; pago: number; pendente: number; items: Comissao[] }> = {};
-  comissoes.forEach(c => {
-    if (!comissoesPorColaborador[c.colaborador_nome]) {
-      comissoesPorColaborador[c.colaborador_nome] = { nome: c.colaborador_nome, total: 0, pago: 0, pendente: 0, items: [] };
-    }
-    comissoesPorColaborador[c.colaborador_nome].total += c.valor;
-    if (c.pago) comissoesPorColaborador[c.colaborador_nome].pago += c.valor;
-    else comissoesPorColaborador[c.colaborador_nome].pendente += c.valor;
-    comissoesPorColaborador[c.colaborador_nome].items.push(c);
-  });
+  const grouped = useMemo(() => {
+    const map = new Map<number, { nome: string; comissoes: Comissao[]; total: number; pagas: number }>();
+    comissoes.forEach(c => {
+      if (!map.has(c.colaborador_id)) map.set(c.colaborador_id, { nome: c.colaborador_nome, comissoes: [], total: 0, pagas: 0 });
+      const grp = map.get(c.colaborador_id)!;
+      grp.comissoes.push(c);
+      grp.total += c.valor_comissao;
+      if (c.pago) grp.pagas += c.valor_comissao;
+    });
+    let result = Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
+    if (search) result = result.filter(([, g]) => g.nome.toLowerCase().includes(search.toLowerCase()));
+    return result;
+  }, [comissoes, search]);
 
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48" />
-        <div className="grid grid-cols-3 gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-200 rounded-xl" />)}
-        </div>
-        <div className="h-64 bg-gray-200 rounded-xl" />
-      </div>
-    );
-  }
+  const toggleExpand = (id: number) => {
+    setExpandedColab(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  const pctPago = totais.total > 0 ? Math.round((totais.pagas / totais.total) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Comissoes</h1>
-          <p className="text-gray-500 mt-1">Calcule e gerencie as comissoes dos colaboradores</p>
-        </div>
-        <button
-          onClick={handleCalcular}
-          disabled={calculating}
-          className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
-        >
-          <Calculator className="w-4 h-4" />
-          {calculating ? 'Calculando...' : 'Calcular Comissoes'}
-        </button>
-      </div>
+      <PageHeader title="Comissões" subtitle={`Referência: ${formatMonth(mesAtual)}`}
+        actions={
+          <div className="flex items-center gap-3 flex-wrap">
+            <input type="month" className="input" style={{ width: 'auto' }} value={mesAtual} onChange={e => setMesAtual(e.target.value)} />
+            <button onClick={calcularComissoes} className="btn-accent flex items-center gap-2" disabled={loading}>
+              <Calculator className="w-4 h-4" /> Calcular
+            </button>
+          </div>
+        }
+      />
 
-      {/* Month Selector & Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2.5">
-          <Calendar className="w-4 h-4 text-gray-400" />
-          <input
-            type="month"
-            value={mesSelecionado}
-            onChange={e => setMesSelecionado(e.target.value)}
-            className="text-sm focus:outline-none"
-          />
-        </div>
-        <select
-          value={filterColaborador}
-          onChange={e => setFilterColaborador(e.target.value)}
-          className="px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="">Todos colaboradores</option>
-          {colaboradores.map(c => (
-            <option key={c.id} value={c.id}>{c.nome}</option>
-          ))}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="">Todos status</option>
-          <option value="false">Pendentes</option>
-          <option value="true">Pagas</option>
-        </select>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 font-medium">Total do Mes</p>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(totalComissoes)}</p>
+      {/* Summary */}
+      {loading ? <SkeletonStats /> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+          <StatsCard title="Total" value={formatCurrency(totais.total)} subtitle={`${totais.count} comissões`} icon={DollarSign} />
+          <StatsCard title="Pagas" value={formatCurrency(totais.pagas)} icon={Check} />
+          <StatsCard title="Pendentes" value={formatCurrency(totais.pendentes)} icon={Clock} />
+          <div className="card p-5 animate-fade-in">
+            <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Progresso</p>
+            <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>{pctPago}%</p>
+            <div className="w-full rounded-full h-2 mt-3" style={{ background: 'var(--bg-hover)' }}>
+              <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pctPago}%`, background: 'var(--accent)' }} />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 font-medium">Pendente</p>
-              <p className="text-xl font-bold text-amber-600">{formatCurrency(totalPendente)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Check className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 font-medium">Pago</p>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(totalPago)}</p>
-            </div>
-          </div>
-        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+        <input className="input pl-10" placeholder="Buscar colaborador..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Commission List */}
-      {comissoes.length === 0 ? (
-        <EmptyState
-          icon={DollarSign}
-          title="Nenhuma comissao para este mes"
-          description={`Clique em "Calcular Comissoes" para gerar as comissoes de ${formatMonthLabel(mesSelecionado)} com base nas postagens registradas.`}
-          action={{ label: 'Calcular Comissoes', onClick: handleCalcular }}
-        />
+      {/* Accordion */}
+      {loading ? <SkeletonTable /> : grouped.length === 0 ? (
+        <EmptyState icon={DollarSign} title="Nenhuma comissão" description="Calcule as comissões do mês selecionado."
+          action={{ label: 'Calcular Comissões', onClick: calcularComissoes }} />
       ) : (
-        <div className="space-y-6">
-          {Object.values(comissoesPorColaborador).map(grupo => (
-            <div key={grupo.nome} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              {/* Collaborator Header */}
-              <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                      <span className="text-primary-700 font-bold">{grupo.nome.charAt(0)}</span>
+        <div className="space-y-3 stagger-children">
+          {grouped.map(([colabId, grp]) => {
+            const expanded = expandedColab.has(colabId);
+            const pctGrp = grp.total > 0 ? Math.round((grp.pagas / grp.total) * 100) : 0;
+            const pendentes = grp.comissoes.filter(c => !c.pago).length;
+            return (
+              <div key={colabId} className="card overflow-hidden animate-fade-in">
+                {/* Header */}
+                <button onClick={() => toggleExpand(colabId)} className="w-full flex items-center gap-4 p-4 transition-colors text-left"
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                  {expanded ? <ChevronDown className="w-4 h-4 shrink-0" style={{ color: 'var(--text-tertiary)' }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--text-tertiary)' }} />}
+                  <Avatar name={grp.nome} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{grp.nome}</span>
+                      {pendentes > 0 && <Badge variant="warning">{pendentes} pendente{pendentes > 1 ? 's' : ''}</Badge>}
+                      {pendentes === 0 && grp.comissoes.length > 0 && <Badge variant="success">Tudo pago</Badge>}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{grupo.nome}</h3>
-                      <p className="text-xs text-gray-500">{grupo.items.length} postagen{grupo.items.length !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(grupo.total)}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {grupo.pendente > 0 && (
-                        <span className="text-xs text-amber-600">{formatCurrency(grupo.pendente)} pendente</span>
-                      )}
-                      {grupo.pago > 0 && (
-                        <span className="text-xs text-green-600">{formatCurrency(grupo.pago)} pago</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Commission Items */}
-              <div className="divide-y divide-gray-50">
-                {grupo.items.map(comissao => (
-                  <div key={comissao.id} className="px-6 py-3 flex items-center gap-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{comissao.postagem_titulo}</p>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          comissao.postagem_categoria === 'viral'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-purple-100 text-purple-700'
-                        }`}>
-                          {comissao.postagem_categoria === 'viral' ? 'Viral' : 'Tecnico'}
-                        </span>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          {formatNumber(comissao.postagem_visualizacoes)} views
-                        </span>
-                        <span className="text-xs text-gray-400">{comissao.conta_plataforma}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 max-w-[120px] rounded-full h-1.5" style={{ background: 'var(--bg-hover)' }}>
+                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${pctGrp}%`, background: 'var(--accent)' }} />
                       </div>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{pctGrp}%</span>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-semibold text-gray-900">{formatCurrency(comissao.valor)}</p>
-                    </div>
-                    <button
-                      onClick={() => handleTogglePago(comissao)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${
-                        comissao.pago
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-600 hover:bg-amber-100 hover:text-amber-700'
-                      }`}
-                    >
-                      {comissao.pago ? (
-                        <><Check className="w-3.5 h-3.5" /> Pago</>
-                      ) : (
-                        <><DollarSign className="w-3.5 h-3.5" /> Marcar Pago</>
-                      )}
-                    </button>
                   </div>
-                ))}
+                  <span className="text-base font-bold shrink-0" style={{ color: 'var(--accent)' }}>{formatCurrency(grp.total)}</span>
+                </button>
+                {/* Items */}
+                {expanded && (
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    {pendentes > 0 && (
+                      <div className="px-4 py-2 flex justify-end" style={{ background: 'var(--bg-hover)' }}>
+                        <button onClick={() => pagarTodas(colabId)} className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--accent)', background: 'var(--accent-surface)' }}>
+                          Pagar todas ({pendentes})
+                        </button>
+                      </div>
+                    )}
+                    {grp.comissoes.map(c => (
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-3 transition-colors"
+                        style={{ borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                        <button onClick={() => togglePago(c)}
+                          className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all"
+                          style={{ borderColor: c.pago ? 'var(--accent)' : 'var(--border)', background: c.pago ? 'var(--accent)' : 'transparent' }}>
+                          {c.pago && <Check className="w-3 h-3" style={{ color: 'var(--text-inverted)' }} />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate" style={{ color: c.pago ? 'var(--text-tertiary)' : 'var(--text-primary)', textDecoration: c.pago ? 'line-through' : 'none' }}>
+                            {c.postagem_titulo}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant={c.categoria === 'viral' ? 'viral' : 'tecnico'} size="sm">{c.categoria === 'viral' ? 'Viral' : 'Técnico'}</Badge>
+                            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {formatNumber(c.visualizacoes)} views · CPM {formatCurrency(c.cpm_valor)}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold shrink-0" style={{ color: c.pago ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
+                          {formatCurrency(c.valor_comissao)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

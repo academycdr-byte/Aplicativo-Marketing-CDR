@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import StatsCard from '@/components/StatsCard';
-import { Eye, DollarSign, FileVideo, Users, TrendingUp, Instagram } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { SkeletonStats, SkeletonChart } from '@/components/Skeleton';
+import Badge from '@/components/Badge';
+import Avatar from '@/components/Avatar';
+import { Eye, DollarSign, FileVideo, Users, TrendingUp, BarChart3 } from 'lucide-react';
+import { formatCurrency, formatNumber, formatCompactNumber, formatMonth, getGreeting, formatFullDate, getEngagementRate } from '@/lib/utils';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, BarChart, Bar,
+} from 'recharts';
 
 interface DashboardData {
   total_visualizacoes: number;
@@ -17,24 +24,9 @@ interface DashboardData {
   visualizacoes_por_plataforma: { plataforma: string; visualizacoes: number }[];
   top_postagens: {
     id: number; titulo: string; visualizacoes: number;
+    curtidas?: number; comentarios?: number; compartilhamentos?: number;
     categoria: string; conta_plataforma: string; colaborador_nome: string;
   }[];
-}
-
-const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#22c55e', '#ef4444', '#06b6d4'];
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-BR').format(value);
-}
-
-function formatMonth(mes: string): string {
-  const [year, month] = mes.split('-');
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  return `${months[parseInt(month) - 1]}/${year.slice(2)}`;
 }
 
 export default function Dashboard() {
@@ -44,10 +36,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(res => {
-        if (!res.ok) throw new Error('Erro');
-        return res.json();
-      })
+      .then(res => { if (!res.ok) throw new Error('Erro'); return res.json(); })
       .then(d => {
         if (d && typeof d.total_postagens === 'number') setData(d);
         else throw new Error('Dados invalidos');
@@ -58,24 +47,29 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1,2,3,4].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}
+      <div className="space-y-6 animate-fade-in">
+        <div className="space-y-1">
+          <div className="skeleton" style={{ width: 200, height: 28 }} />
+          <div className="skeleton" style={{ width: 280, height: 16 }} />
         </div>
-        <div className="h-80 bg-gray-200 rounded-xl" />
+        <SkeletonStats />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2"><SkeletonChart /></div>
+          <SkeletonChart />
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-        <p className="text-lg font-medium text-gray-600 mb-2">Erro ao carregar dashboard</p>
-        <p className="text-sm mb-4">Verifique a conexao com o banco de dados.</p>
-        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700">
-          Tentar novamente
-        </button>
+      <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--error-surface)' }}>
+          <BarChart3 className="w-7 h-7" style={{ color: 'var(--error)' }} />
+        </div>
+        <p className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Erro ao carregar dashboard</p>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Verifique a conexão com o banco de dados.</p>
+        <button onClick={() => window.location.reload()} className="btn-accent">Tentar novamente</button>
       </div>
     );
   }
@@ -90,71 +84,100 @@ export default function Dashboard() {
     { name: 'Pagas', value: data.comissoes_pagas },
   ].filter(d => d.value > 0);
 
+  const totalComissoes = data.comissoes_pendentes + data.comissoes_pagas;
+  const pagoPct = totalComissoes > 0 ? Math.round((data.comissoes_pagas / totalComissoes) * 100) : 0;
+
+  const avgViews = data.total_postagens > 0 ? Math.round(data.total_visualizacoes / data.total_postagens) : 0;
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 md:space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Visao geral do marketing CDR</p>
+        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          {getGreeting()}, Admin 👋
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          {formatFullDate()}
+        </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 stagger-children">
         <StatsCard
-          title="Total de Visualizacoes"
-          value={formatNumber(data.total_visualizacoes)}
+          title="Total de Visualizações"
+          value={formatCompactNumber(data.total_visualizacoes)}
+          subtitle={`${formatNumber(data.total_visualizacoes)} views`}
           icon={Eye}
-          color="blue"
         />
         <StatsCard
-          title="Total em Comissoes"
+          title="Total em Comissões"
           value={formatCurrency(data.total_comissoes)}
           subtitle={`${formatCurrency(data.comissoes_pendentes)} pendentes`}
           icon={DollarSign}
-          color="green"
         />
         <StatsCard
           title="Total de Postagens"
           value={formatNumber(data.total_postagens)}
+          subtitle={`Média de ${formatCompactNumber(avgViews)} views/post`}
           icon={FileVideo}
-          color="purple"
         />
         <StatsCard
           title="Colaboradores Ativos"
           value={data.total_colaboradores}
           icon={Users}
-          color="orange"
         />
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bar Chart - Postagens por Mes */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Postagens por Mes</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Area Chart */}
+        <div className="lg:col-span-2 card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Postagens por Mês
+          </h3>
           {postagensMesData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={postagensMesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
+              <AreaChart data={postagensMesData}>
+                <defs>
+                  <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{
+                    borderRadius: 12,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    boxShadow: 'var(--shadow-lg)',
+                    color: 'var(--text-primary)',
+                  }}
                   formatter={(value: number) => [value, 'Postagens']}
                 />
-                <Bar dataKey="quantidade" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-              </BarChart>
+                <Area
+                  type="monotone"
+                  dataKey="quantidade"
+                  stroke="var(--accent)"
+                  strokeWidth={2}
+                  fill="url(#areaGradient)"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-400">
+            <div className="flex items-center justify-center h-[300px]" style={{ color: 'var(--text-tertiary)' }}>
               Nenhuma postagem registrada ainda
             </div>
           )}
         </div>
 
-        {/* Pie Chart - Comissoes Status */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status das Comissoes</h3>
+        {/* Donut Chart */}
+        <div className="card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Status das Comissões
+          </h3>
           {pieData.length > 0 ? (
             <div>
               <ResponsiveContainer width="100%" height={200}>
@@ -163,90 +186,137 @@ export default function Dashboard() {
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
+                    innerRadius={55}
                     outerRadius={80}
-                    paddingAngle={5}
+                    paddingAngle={4}
                     dataKey="value"
+                    strokeWidth={0}
                   >
-                    <Cell fill="#f59e0b" />
-                    <Cell fill="#22c55e" />
+                    <Cell fill="var(--warning)" />
+                    <Cell fill="var(--success)" />
                   </Pie>
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex justify-center gap-6 mt-2">
+              {/* Center label */}
+              <div className="text-center -mt-4 mb-3">
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{pagoPct}%</p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>pago</p>
+              </div>
+              <div className="flex justify-center gap-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-amber-500" />
-                  <span className="text-sm text-gray-600">Pendentes</span>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--warning)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pendentes</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-sm text-gray-600">Pagas</span>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--success)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pagas</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-400">
-              Nenhuma comissao registrada
+            <div className="flex items-center justify-center h-[200px]" style={{ color: 'var(--text-tertiary)' }}>
+              Nenhuma comissão registrada
             </div>
           )}
         </div>
       </div>
 
+      {/* Platform Performance */}
+      {(data.visualizacoes_por_plataforma || []).length > 0 && (
+        <div className="card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Performance por Plataforma
+          </h3>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={data.visualizacoes_por_plataforma} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <YAxis type="category" dataKey="plataforma" tick={{ fontSize: 12 }} width={80} />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+                formatter={(value: number) => [formatNumber(value), 'Visualizações']}
+              />
+              <Bar dataKey="visualizacoes" fill="var(--accent)" radius={[0, 6, 6, 0]} barSize={24} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Postagens */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Postagens</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Top Posts */}
+        <div className="card p-5 md:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Top Postagens</h3>
+            <Badge variant="accent">{(data.top_postagens || []).length} posts</Badge>
+          </div>
           {(data.top_postagens || []).length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2 stagger-children">
               {data.top_postagens.map((post, idx) => (
-                <div key={post.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                  <span className="text-lg font-bold text-gray-300 w-6">#{idx + 1}</span>
+                <div
+                  key={post.id}
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all animate-fade-in"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <span className="text-base font-bold w-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    {idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`}
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{post.titulo}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        post.categoria === 'viral' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'
-                      }`}>
-                        {post.categoria === 'viral' ? 'Viral' : 'Tecnico'}
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{post.titulo}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <Badge variant={post.categoria === 'viral' ? 'viral' : 'tecnico'}>
+                        {post.categoria === 'viral' ? 'Viral' : 'Técnico'}
+                      </Badge>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        {post.conta_plataforma} · {post.colaborador_nome}
                       </span>
-                      <span className="text-xs text-gray-400">{post.conta_plataforma}</span>
-                      <span className="text-xs text-gray-400">por {post.colaborador_nome}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">{formatNumber(post.visualizacoes)}</p>
-                    <p className="text-xs text-gray-400">views</p>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {formatCompactNumber(post.visualizacoes)}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>views</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
               Nenhuma postagem registrada
             </div>
           )}
         </div>
 
-        {/* Comissoes por Colaborador */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Comissoes por Colaborador</h3>
+        {/* Commissions by Collaborator */}
+        <div className="card p-5 md:p-6">
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Comissões por Colaborador
+          </h3>
           {(data.comissoes_por_colaborador || []).length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4 stagger-children">
               {(data.comissoes_por_colaborador || []).map((item, idx) => {
                 const maxValue = (data.comissoes_por_colaborador || [])[0]?.valor || 1;
                 const percentage = maxValue > 0 ? (item.valor / maxValue) * 100 : 0;
                 return (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">{item.nome}</span>
-                      <span className="text-sm font-semibold text-gray-900">{formatCurrency(item.valor)}</span>
+                  <div key={idx} className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <Avatar name={item.nome} size="sm" />
+                      <span className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>{item.nome}</span>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>{formatCurrency(item.valor)}</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-full rounded-full h-1.5" style={{ background: 'var(--bg-hover)' }}>
                       <div
-                        className="h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%`, backgroundColor: COLORS[idx % COLORS.length] }}
+                        className="h-1.5 rounded-full transition-all duration-700"
+                        style={{ width: `${percentage}%`, background: 'var(--accent)' }}
                       />
                     </div>
                   </div>
@@ -254,7 +324,7 @@ export default function Dashboard() {
               })}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
               Nenhum colaborador registrado
             </div>
           )}

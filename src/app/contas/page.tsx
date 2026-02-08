@@ -1,8 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Instagram, Music2, Users as UsersIcon, RefreshCw, Link, Unlink } from 'lucide-react';
+import { Share2, Plus, Pencil, Trash2, Instagram, Music2, Users as UsersIcon, RefreshCw, Link, Unlink } from 'lucide-react';
 import Modal from '@/components/Modal';
+import EmptyState from '@/components/EmptyState';
+import PageHeader from '@/components/PageHeader';
+import Badge from '@/components/Badge';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { SkeletonCard } from '@/components/Skeleton';
+import { useToast } from '@/components/ToastProvider';
+import { formatCompactNumber, getRelativeTime } from '@/lib/utils';
 
 interface ContaSocial {
   id: number;
@@ -14,26 +21,11 @@ interface ContaSocial {
   ativa: boolean;
   created_at: string;
   ig_user_id: string | null;
-  tiktok_open_id: string | null;
   auto_sync: boolean;
   last_sync_at: string | null;
   access_token: string | null;
-}
-
-function formatNumber(value: number): string {
-  if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-  if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
-  return value.toString();
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}min atras`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h atras`;
-  const days = Math.floor(hours / 24);
-  return `${days}d atras`;
+  token_expires_at: string | null;
+  tiktok_user_id: string | null;
 }
 
 export default function ContasSociaisPage() {
@@ -42,22 +34,16 @@ export default function ContasSociaisPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<ContaSocial | null>(null);
   const [syncing, setSyncing] = useState<number | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [form, setForm] = useState({
-    plataforma: 'instagram' as 'instagram' | 'tiktok',
-    nome_perfil: '',
-    username: '',
-    seguidores: 0,
-  });
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<ContaSocial | null>(null);
+  const [form, setForm] = useState({ plataforma: 'instagram' as 'instagram' | 'tiktok', nome_perfil: '', username: '', seguidores: 0 });
+  const { showToast } = useToast();
 
   const fetchContas = () => {
     fetch('/api/contas')
-      .then(res => {
-        if (!res.ok) throw new Error('Erro');
-        return res.json();
-      })
+      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
       .then(data => { if (Array.isArray(data)) setContas(data); })
-      .catch(() => {})
+      .catch(() => showToast('error', 'Erro ao carregar contas'))
       .finally(() => setLoading(false));
   };
 
@@ -66,30 +52,30 @@ export default function ContasSociaisPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'connected') {
-      setMessage({ type: 'success', text: 'Instagram conectado com sucesso! As postagens serao sincronizadas automaticamente.' });
-      window.history.replaceState({}, '', '/contas');
-      fetchContas();
-    } else if (params.get('success') === 'tiktok_connected') {
-      setMessage({ type: 'success', text: 'TikTok conectado com sucesso! As postagens serao sincronizadas automaticamente.' });
+      const count = params.get('count');
+      showToast('success', count
+        ? `Instagram conectado! ${count} contas encontradas e sincronizadas.`
+        : 'Instagram conectado com sucesso!');
       window.history.replaceState({}, '', '/contas');
       fetchContas();
     } else if (params.get('error')) {
-      setMessage({ type: 'error', text: decodeURIComponent(params.get('error')!) });
+      showToast('error', decodeURIComponent(params.get('error')!));
       window.history.replaceState({}, '', '/contas');
     }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editando) {
-      await fetch('/api/contas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editando.id, ...form }) });
-    } else {
-      await fetch('/api/contas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    }
-    setModalOpen(false);
-    setEditando(null);
-    setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 });
-    fetchContas();
+    try {
+      if (editando) {
+        await fetch('/api/contas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editando.id, ...form }) });
+      } else {
+        await fetch('/api/contas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      }
+      showToast('success', editando ? 'Conta atualizada!' : 'Conta adicionada!');
+      setModalOpen(false); setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 });
+      fetchContas();
+    } catch { showToast('error', 'Erro ao salvar conta'); }
   };
 
   const handleEdit = (conta: ContaSocial) => {
@@ -99,130 +85,122 @@ export default function ContasSociaisPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
-    await fetch(`/api/contas?id=${id}`, { method: 'DELETE' });
-    fetchContas();
+    try {
+      await fetch(`/api/contas?id=${id}`, { method: 'DELETE' });
+      showToast('success', 'Conta excluída');
+      fetchContas();
+    } catch { showToast('error', 'Erro ao excluir'); }
   };
 
-  const handleSync = async (conta: ContaSocial) => {
-    setSyncing(conta.id);
-    const isTikTok = conta.plataforma === 'tiktok';
-    const endpoint = isTikTok ? '/api/tiktok/sync' : '/api/instagram/sync';
+  const handleSync = async (contaId: number) => {
+    setSyncing(contaId);
     try {
-      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta_id: conta.id }) });
+      const res = await fetch('/api/instagram/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta_id: contaId }) });
       const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: 'success', text: `Sincronizado: ${data.created} novas postagens, ${data.updated} atualizadas.` });
-        fetchContas();
-      } else {
-        setMessage({ type: 'error', text: data.error || 'Erro ao sincronizar' });
-      }
-    } catch {
-      setMessage({ type: 'error', text: 'Erro ao sincronizar' });
-    }
+      if (res.ok) { showToast('success', `Sincronizado: ${data.created} novas, ${data.updated} atualizadas.`); fetchContas(); }
+      else showToast('error', data.error || 'Erro ao sincronizar');
+    } catch { showToast('error', 'Erro ao sincronizar'); }
+    setSyncing(null);
+  };
+
+  const handleSyncTikTok = async (contaId: number) => {
+    setSyncing(contaId);
+    try {
+      const res = await fetch('/api/tiktok/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta_id: contaId }) });
+      const data = await res.json();
+      if (res.ok) { showToast('success', `TikTok: ${data.created} novos, ${data.updated} atualizados.`); fetchContas(); }
+      else showToast('error', data.error || 'Erro ao sincronizar TikTok');
+    } catch { showToast('error', 'Erro ao sincronizar TikTok'); }
     setSyncing(null);
   };
 
   const handleDisconnect = async (conta: ContaSocial) => {
-    const platform = conta.plataforma === 'tiktok' ? 'TikTok' : 'Instagram';
-    if (!confirm(`Desconectar o ${platform}? As postagens ja sincronizadas serao mantidas.`)) return;
-    const disconnectData = conta.plataforma === 'tiktok'
-      ? { id: conta.id, tiktok_open_id: null, tiktok_token: null, tiktok_refresh: null, tiktok_expires_at: null, access_token: null, auto_sync: false }
-      : { id: conta.id, ig_user_id: null, access_token: null, auto_sync: false, token_expires_at: null };
-    await fetch('/api/contas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(disconnectData) });
-    fetchContas();
+    try {
+      await fetch('/api/contas', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: conta.id, ig_user_id: null, access_token: null, auto_sync: false, token_expires_at: null })
+      });
+      showToast('success', 'Conta desconectada');
+      fetchContas();
+    } catch { showToast('error', 'Erro ao desconectar'); }
   };
-
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1,2].map(i => <div key={i} className="h-48 bg-gray-200 rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
 
   const instagramContas = contas.filter(c => c.plataforma === 'instagram');
   const tiktokContas = contas.filter(c => c.plataforma === 'tiktok');
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {message && (
-        <div className={`rounded-xl p-4 flex items-center justify-between ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
-          <p className="text-sm">{message.text}</p>
-          <button onClick={() => setMessage(null)} className="text-sm font-medium underline ml-4">Fechar</button>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Contas Sociais</h1>
-          <p className="text-gray-500 mt-1">Conecte suas contas e sincronize automaticamente</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => { window.location.href = '/api/instagram/auth'; }} className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90 transition-all shadow-sm">
-            <Instagram className="w-4 h-4" />
-            Conectar Instagram
-          </button>
-          <button onClick={() => { window.location.href = '/api/tiktok/auth'; }} className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-lg bg-black hover:bg-gray-800 transition-all shadow-sm">
-            <Music2 className="w-4 h-4" />
-            Conectar TikTok
-          </button>
-          <button onClick={() => { setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 }); setModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
-            <Plus className="w-4 h-4" />
-            Manual
-          </button>
-        </div>
-      </div>
-
-      {contas.length === 0 ? (
-        <div className="text-center py-16">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma conta conectada</h3>
-          <p className="text-gray-500 mb-6 max-w-md mx-auto">Conecte seu Instagram ou TikTok para sincronizar postagens e metricas automaticamente.</p>
-          <div className="flex items-center justify-center gap-4">
-            <button onClick={() => { window.location.href = '/api/instagram/auth'; }} className="inline-flex items-center gap-2 px-6 py-3 text-white font-medium rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90 transition-all shadow-md">
-              <Instagram className="w-5 h-5" />
-              Conectar Instagram
+      <PageHeader
+        title="Contas Sociais"
+        subtitle="Conecte e gerencie suas redes sociais"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => { window.location.href = '/api/instagram/auth'; }}
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-xl transition-all"
+              style={{ background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' }}
+            >
+              <Instagram className="w-4 h-4" /> Instagram
             </button>
-            <button onClick={() => { window.location.href = '/api/tiktok/auth'; }} className="inline-flex items-center gap-2 px-6 py-3 text-white font-medium rounded-lg bg-black hover:bg-gray-800 transition-all shadow-md">
-              <Music2 className="w-5 h-5" />
-              Conectar TikTok
+            <button onClick={() => { window.location.href = '/api/tiktok/auth'; }}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
+              style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}
+            >
+              <Music2 className="w-4 h-4" /> TikTok
+            </button>
+            <button onClick={() => { setEditando(null); setForm({ plataforma: 'instagram', nome_perfil: '', username: '', seguidores: 0 }); setModalOpen(true); }}
+              className="btn-ghost flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Manual
             </button>
           </div>
+        }
+      />
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
         </div>
+      ) : contas.length === 0 ? (
+        <EmptyState icon={Share2} title="Nenhuma conta conectada" description="Conecte seu Instagram ou TikTok para sincronizar postagens automaticamente."
+          action={{ label: 'Conectar Instagram', onClick: () => { window.location.href = '/api/instagram/auth'; } }} />
       ) : (
         <div className="space-y-8">
+          {/* Instagram */}
           {instagramContas.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-lg flex items-center justify-center">
-                  <Instagram className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' }}>
+                  <Instagram className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Instagram</h2>
-                <span className="text-sm text-gray-400">({instagramContas.length} conta{instagramContas.length > 1 ? 's' : ''})</span>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Instagram</h2>
+                <Badge variant="default">{instagramContas.length}</Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
                 {instagramContas.map(conta => (
-                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
+                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={() => setConfirmDelete(conta.id)}
+                    onConnect={(id) => { window.location.href = `/api/instagram/auth?conta_id=${id}`; }}
+                    onSync={handleSync} onSyncTikTok={handleSyncTikTok}
+                    onDisconnect={() => setConfirmDisconnect(conta)} syncing={syncing === conta.id} />
                 ))}
               </div>
             </div>
           )}
 
+          {/* TikTok */}
           {tiktokContas.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                  <Music2 className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+                  <Music2 className="w-4 h-4" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">TikTok</h2>
-                <span className="text-sm text-gray-400">({tiktokContas.length} conta{tiktokContas.length > 1 ? 's' : ''})</span>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>TikTok</h2>
+                <Badge variant="default">{tiktokContas.length}</Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
                 {tiktokContas.map(conta => (
-                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={handleDelete} onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncing === conta.id} />
+                  <ContaCard key={conta.id} conta={conta} onEdit={handleEdit} onDelete={() => setConfirmDelete(conta.id)}
+                    onConnect={() => { window.location.href = '/api/tiktok/auth'; }}
+                    onSync={handleSync} onSyncTikTok={handleSyncTikTok}
+                    onDisconnect={() => setConfirmDisconnect(conta)} syncing={syncing === conta.id} />
                 ))}
               </div>
             </div>
@@ -230,111 +208,158 @@ export default function ContasSociaisPage() {
         </div>
       )}
 
+      {/* Modal */}
       <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditando(null); }} title={editando ? 'Editar Conta' : 'Nova Conta Social'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Plataforma</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Plataforma</label>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setForm({ ...form, plataforma: 'instagram' })} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${form.plataforma === 'instagram' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                <Instagram className="w-5 h-5" /><span className="font-medium">Instagram</span>
-              </button>
-              <button type="button" onClick={() => setForm({ ...form, plataforma: 'tiktok' })} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${form.plataforma === 'tiktok' ? 'border-gray-900 bg-gray-50 text-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                <Music2 className="w-5 h-5" /><span className="font-medium">TikTok</span>
-              </button>
+              {(['instagram', 'tiktok'] as const).map(p => (
+                <button key={p} type="button" onClick={() => setForm({ ...form, plataforma: p })}
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all text-sm font-medium"
+                  style={{
+                    borderColor: form.plataforma === p ? 'var(--accent)' : 'var(--border)',
+                    background: form.plataforma === p ? 'var(--accent-surface)' : 'transparent',
+                    color: form.plataforma === p ? 'var(--accent)' : 'var(--text-secondary)',
+                  }}>
+                  {p === 'instagram' ? <Instagram className="w-4 h-4" /> : <Music2 className="w-4 h-4" />}
+                  {p === 'instagram' ? 'Instagram' : 'TikTok'}
+                </button>
+              ))}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Perfil</label>
-            <input type="text" required value={form.nome_perfil} onChange={e => setForm({ ...form, nome_perfil: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Nome exibido no perfil" />
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Nome do Perfil</label>
+            <input className="input" required value={form.nome_perfil} onChange={e => setForm({ ...form, nome_perfil: e.target.value })} placeholder="Nome exibido no perfil" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Username</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">@</span>
-              <input type="text" required value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="username" />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-tertiary)' }}>@</span>
+              <input className="input pl-8" required value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="username" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Seguidores</label>
-            <input type="number" min="0" value={form.seguidores} onChange={e => setForm({ ...form, seguidores: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0" />
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Seguidores</label>
+            <input className="input" type="number" min="0" value={form.seguidores} onChange={e => setForm({ ...form, seguidores: parseInt(e.target.value) || 0 })} />
           </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => { setModalOpen(false); setEditando(null); }} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="submit" className="flex-1 px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">{editando ? 'Salvar' : 'Adicionar'}</button>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost">Cancelar</button>
+            <button type="submit" className="btn-accent">{editando ? 'Salvar' : 'Adicionar'}</button>
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog isOpen={confirmDelete !== null} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete); }}
+        title="Excluir Conta" message="Tem certeza? As postagens sincronizadas serão mantidas." confirmLabel="Excluir" variant="danger" />
+
+      <ConfirmDialog isOpen={confirmDisconnect !== null} onClose={() => setConfirmDisconnect(null)}
+        onConfirm={() => { if (confirmDisconnect) handleDisconnect(confirmDisconnect); }}
+        title="Desconectar Conta" message="Desconectar a API? As postagens já sincronizadas serão mantidas." confirmLabel="Desconectar" variant="warning" />
     </div>
   );
 }
 
-function ContaCard({ conta, onEdit, onDelete, onSync, onDisconnect, syncing }: {
-  conta: ContaSocial; onEdit: (c: ContaSocial) => void; onDelete: (id: number) => void;
-  onSync: (c: ContaSocial) => void; onDisconnect: (c: ContaSocial) => void; syncing: boolean;
+function ContaCard({ conta, onEdit, onDelete, onConnect, onSync, onSyncTikTok, onDisconnect, syncing }: {
+  conta: ContaSocial; onEdit: (c: ContaSocial) => void; onDelete: () => void;
+  onConnect: (id: number) => void; onSync: (id: number) => void; onSyncTikTok: (id: number) => void; onDisconnect: () => void; syncing: boolean;
 }) {
   const isInstagram = conta.plataforma === 'instagram';
-  const isTikTok = conta.plataforma === 'tiktok';
-  const isConnected = isInstagram ? !!conta.ig_user_id : !!conta.tiktok_open_id;
+  const isConnected = isInstagram ? !!conta.ig_user_id : !!conta.tiktok_user_id;
+
+  // Health indicator
+  let health: 'connected' | 'expiring' | 'disconnected' = 'disconnected';
+  if (isConnected) {
+    health = 'connected';
+    if (conta.token_expires_at) {
+      const diff = new Date(conta.token_expires_at).getTime() - Date.now();
+      if (diff < 7 * 24 * 60 * 60 * 1000) health = 'expiring'; // < 7 days
+    }
+  }
+
+  const healthColors = { connected: 'var(--success)', expiring: 'var(--warning)', disconnected: 'var(--text-tertiary)' };
+  const healthLabels = { connected: 'Conectada', expiring: 'Token expirando', disconnected: 'Desconectada' };
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 card-hover">
+    <div className="card card-hover p-5 animate-fade-in">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isInstagram ? 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400' : 'bg-black'}`}>
-            {isInstagram ? <Instagram className="w-6 h-6 text-white" /> : <Music2 className="w-6 h-6 text-white" />}
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: isInstagram ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : 'var(--text-primary)' }}>
+            {isInstagram ? <Instagram className="w-5 h-5 text-white" /> : <Music2 className="w-5 h-5" style={{ color: 'var(--bg-primary)' }} />}
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{conta.nome_perfil}</h3>
-            <p className="text-sm text-gray-500">@{conta.username}</p>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{conta.nome_perfil}</h3>
+            <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>@{conta.username}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${conta.ativa ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {conta.ativa ? 'Ativa' : 'Inativa'}
-          </span>
-          {isConnected && <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">API conectada</span>}
+        {/* Health dot */}
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: healthColors[health] }} />
+          <span className="text-xs font-medium" style={{ color: healthColors[health] }}>{healthLabels[health]}</span>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-4">
-        <div className="flex items-center gap-1.5 text-sm text-gray-600">
-          <UsersIcon className="w-4 h-4 text-gray-400" />
-          <span className="font-medium">{formatNumber(conta.seguidores)}</span>
-          <span className="text-gray-400">seguidores</span>
+      <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center gap-1.5">
+          <UsersIcon className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCompactNumber(conta.seguidores)}</span>
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>seguidores</span>
         </div>
       </div>
 
       {isConnected && conta.last_sync_at && (
-        <div className="mt-2 text-xs text-gray-400">Ultimo sync: {timeAgo(conta.last_sync_at)}</div>
+        <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>Último sync: {getRelativeTime(conta.last_sync_at)}</p>
       )}
 
-      <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
-        {isConnected ? (
-          <div className="flex items-center gap-2">
-            <button onClick={() => onSync(conta)} disabled={syncing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Sincronizando...' : 'Sincronizar'}
-            </button>
-            <button onClick={() => onDisconnect(conta)} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Desconectar">
-              <Unlink className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (isInstagram || isTikTok) ? (
-          <button
-            onClick={() => { window.location.href = isInstagram ? `/api/instagram/auth?conta_id=${conta.id}` : `/api/tiktok/auth?conta_id=${conta.id}`; }}
-            className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg transition-all font-medium ${isInstagram ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90' : 'bg-black hover:bg-gray-800'}`}
-          >
-            <Link className="w-3.5 h-3.5" />
-            Conectar via API
-          </button>
-        ) : null}
-
+      <div className="mt-4 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border)' }}>
+        {/* Sync / Connect */}
         <div className="flex items-center gap-2">
-          <button onClick={() => onEdit(conta)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-            <Pencil className="w-3.5 h-3.5" />Editar
+          {isConnected ? (
+            <>
+              <button
+                onClick={() => isInstagram ? onSync(conta.id) : onSyncTikTok(conta.id)}
+                disabled={syncing}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all"
+                style={{ background: 'var(--accent-surface)', color: 'var(--accent)' }}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Sincronizando...' : 'Sincronizar'}
+              </button>
+              <button onClick={onDisconnect}
+                className="p-2 rounded-xl transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                title="Desconectar">
+                <Unlink className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <button onClick={() => onConnect(conta.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl transition-all text-white"
+              style={{ background: isInstagram ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : 'var(--text-primary)' }}>
+              <Link className="w-3.5 h-3.5" /> Conectar via API
+            </button>
+          )}
+        </div>
+
+        {/* Edit / Delete */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => onEdit(conta)}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            <Pencil className="w-3 h-3" /> Editar
           </button>
-          <button onClick={() => onDelete(conta.id)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-            <Trash2 className="w-3.5 h-3.5" />Excluir
+          <button onClick={onDelete}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl transition-colors"
+            style={{ color: 'var(--error)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--error-surface)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            <Trash2 className="w-3 h-3" /> Excluir
           </button>
         </div>
       </div>

@@ -1,240 +1,213 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, DollarSign, Zap, BookOpen, Save, Check } from 'lucide-react';
+import { Settings, DollarSign, Calculator, Save, Sun, Moon, Monitor } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import Badge from '@/components/Badge';
+import { SkeletonCard } from '@/components/Skeleton';
+import { useToast } from '@/components/ToastProvider';
+import { useTheme } from '@/components/ThemeProvider';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
-interface ConfigCPM {
-  id: number;
+interface ConfiguracaoCPM {
+  id?: number;
+  plataforma: string;
   categoria: string;
-  valor_por_cpm: number;
-  updated_at: string;
+  valor_cpm: number;
 }
 
 export default function ConfiguracoesPage() {
-  const [configs, setConfigs] = useState<ConfigCPM[]>([]);
+  const [configs, setConfigs] = useState<ConfiguracaoCPM[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
-  const [viralValue, setViralValue] = useState('2.00');
-  const [tecnicoValue, setTecnicoValue] = useState('5.00');
+  const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
+  const { theme, setTheme, resolvedTheme } = useTheme();
 
-  const fetchConfigs = () => {
+  // Simulator
+  const [simPlataforma, setSimPlataforma] = useState('instagram');
+  const [simCategoria, setSimCategoria] = useState('viral');
+  const [simViews, setSimViews] = useState(10000);
+
+  useEffect(() => {
     fetch('/api/configuracoes')
-      .then(res => {
-        if (!res.ok) throw new Error('Erro');
-        return res.json();
-      })
-      .then((data: ConfigCPM[]) => {
-        if (!Array.isArray(data)) return;
-        setConfigs(data);
-        const viral = data.find(c => c.categoria === 'viral');
-        const tecnico = data.find(c => c.categoria === 'tecnico');
-        if (viral) setViralValue(viral.valor_por_cpm.toFixed(2));
-        if (tecnico) setTecnicoValue(tecnico.valor_por_cpm.toFixed(2));
-      })
-      .catch(() => {})
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setConfigs(data); })
+      .catch(() => showToast('error', 'Erro ao carregar configurações'))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { fetchConfigs(); }, []);
-
-  const handleSave = async (categoria: string) => {
-    setSaving(categoria);
-    const valor = categoria === 'viral' ? parseFloat(viralValue) : parseFloat(tecnicoValue);
-    await fetch('/api/configuracoes', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoria, valor_por_cpm: valor }),
+  const updateConfig = (plataforma: string, categoria: string, valor_cpm: number) => {
+    setConfigs(prev => {
+      const idx = prev.findIndex(c => c.plataforma === plataforma && c.categoria === categoria);
+      if (idx >= 0) {
+        const n = [...prev]; n[idx] = { ...n[idx], valor_cpm }; return n;
+      }
+      return [...prev, { plataforma, categoria, valor_cpm }];
     });
-    setSaving(null);
-    setSaved(categoria);
-    setTimeout(() => setSaved(null), 2000);
-    fetchConfigs();
   };
 
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48" />
-        <div className="space-y-4">
-          {[1,2].map(i => <div key={i} className="h-40 bg-gray-200 rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
+  const getConfigValue = (plataforma: string, categoria: string) => {
+    return configs.find(c => c.plataforma === plataforma && c.categoria === categoria)?.valor_cpm || 0;
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/configuracoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configs }) });
+      if (res.ok) showToast('success', 'Configurações salvas!');
+      else showToast('error', 'Erro ao salvar');
+    } catch { showToast('error', 'Erro ao salvar'); }
+    setSaving(false);
+  };
+
+  const simCPM = getConfigValue(simPlataforma, simCategoria);
+  const simComissao = (simViews / 1000) * simCPM;
+
+  const platforms = ['instagram', 'tiktok'];
+  const categories = ['viral', 'tecnico'];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Configuracoes</h1>
-        <p className="text-gray-500 mt-1">Configure os valores de CPM para cada categoria de video</p>
-      </div>
+    <div className="space-y-8 animate-fade-in">
+      <PageHeader title="Configurações" subtitle="Valores de CPM e preferências do sistema"
+        actions={
+          <button onClick={handleSave} disabled={saving} className="btn-accent flex items-center gap-2">
+            <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        }
+      />
 
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            <DollarSign className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-blue-900">Como funciona o CPM?</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              CPM significa Custo por Mil (visualizacoes). O valor configurado abaixo sera multiplicado pelo numero de
-              milhares de visualizacoes de cada postagem para calcular a comissao do colaborador.
-            </p>
-            <p className="text-sm text-blue-700 mt-2">
-              <strong>Exemplo:</strong> Um video com 50.000 views e CPM de R$2,00 gera uma comissao de R$100,00 (50 x R$2,00).
-            </p>
-          </div>
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2].map(i => <SkeletonCard key={i} />)}
         </div>
-      </div>
+      ) : (
+        <>
+          {/* CPM Configuration */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Valores de CPM</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {platforms.map(plat => (
+                <div key={plat} className="card p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Badge variant={plat === 'instagram' ? 'instagram' : 'tiktok'}>
+                      {plat === 'instagram' ? 'Instagram' : 'TikTok'}
+                    </Badge>
+                  </div>
+                  <div className="space-y-4">
+                    {categories.map(cat => {
+                      const value = getConfigValue(plat, cat);
+                      return (
+                        <div key={cat}>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                              <Badge variant={cat === 'viral' ? 'viral' : 'tecnico'} size="sm">
+                                {cat === 'viral' ? '🔥 Viral' : '📐 Técnico'}
+                              </Badge>
+                            </label>
+                            <span className="text-sm font-bold" style={{ color: 'var(--accent)' }}>
+                              {formatCurrency(value)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range" min="0" max="100" step="0.5" value={value}
+                              onChange={e => updateConfig(plat, cat, parseFloat(e.target.value))}
+                              className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                              style={{
+                                background: `linear-gradient(to right, var(--accent) ${value}%, var(--bg-hover) ${value}%)`,
+                              }}
+                            />
+                            <input
+                              type="number" min="0" step="0.5" value={value}
+                              onChange={e => updateConfig(plat, cat, parseFloat(e.target.value) || 0)}
+                              className="input text-center w-20"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      {/* CPM Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Viral */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
+          {/* Simulator */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Calculator className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Simulador de Comissão</h2>
+            </div>
+            <div className="card p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Plataforma</label>
+                  <select className="input" value={simPlataforma} onChange={e => setSimPlataforma(e.target.value)}>
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Categoria</label>
+                  <select className="input" value={simCategoria} onChange={e => setSimCategoria(e.target.value)}>
+                    <option value="viral">Viral</option>
+                    <option value="tecnico">Técnico</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Visualizações</label>
+                  <input className="input" type="number" min="0" step="1000" value={simViews} onChange={e => setSimViews(parseInt(e.target.value) || 0)} />
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Videos Virais</h3>
-                <p className="text-amber-100 text-sm">Conteudo de alto alcance e engajamento</p>
+
+              {/* Result */}
+              <div className="rounded-xl p-5 text-center" style={{ background: 'var(--accent-surface)', border: '1px solid var(--accent)' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Comissão estimada</p>
+                <p className="text-3xl font-bold mt-1" style={{ color: 'var(--accent)' }}>{formatCurrency(simComissao)}</p>
+                <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                  {formatNumber(simViews)} views × {formatCurrency(simCPM)} CPM = {formatCurrency(simComissao)}
+                </p>
               </div>
             </div>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Valor por CPM (R$)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">R$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={viralValue}
-                  onChange={e => setViralValue(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Ultimo ajuste: {configs.find(c => c.categoria === 'viral')?.updated_at || 'N/A'}
-              </p>
-            </div>
-            <button
-              onClick={() => handleSave('viral')}
-              disabled={saving === 'viral'}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 text-white font-medium rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
-            >
-              {saved === 'viral' ? (
-                <><Check className="w-4 h-4" /> Salvo!</>
-              ) : saving === 'viral' ? (
-                'Salvando...'
-              ) : (
-                <><Save className="w-4 h-4" /> Salvar Alteracao</>
-              )}
-            </button>
-          </div>
-        </div>
+          </section>
 
-        {/* Tecnico */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Videos Tecnicos</h3>
-                <p className="text-purple-100 text-sm">Conteudo educacional e informativo</p>
+          {/* Preferences */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Settings className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Preferências</h2>
+            </div>
+            <div className="card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Aparência</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Escolha o tema do sistema</p>
+                </div>
+                <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+                  {([
+                    { value: 'dark' as const, icon: Moon, label: 'Escuro' },
+                    { value: 'light' as const, icon: Sun, label: 'Claro' },
+                    { value: 'system' as const, icon: Monitor, label: 'Sistema' },
+                  ]).map(opt => (
+                    <button key={opt.value} onClick={() => setTheme(opt.value)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: theme === opt.value ? 'var(--bg-card)' : 'transparent',
+                        color: theme === opt.value ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        boxShadow: theme === opt.value ? 'var(--shadow-sm)' : 'none',
+                      }}>
+                      <opt.icon className="w-3.5 h-3.5" /> {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Valor por CPM (R$)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">R$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={tecnicoValue}
-                  onChange={e => setTecnicoValue(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Ultimo ajuste: {configs.find(c => c.categoria === 'tecnico')?.updated_at || 'N/A'}
-              </p>
-            </div>
-            <button
-              onClick={() => handleSave('tecnico')}
-              disabled={saving === 'tecnico'}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white font-medium rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
-            >
-              {saved === 'tecnico' ? (
-                <><Check className="w-4 h-4" /> Salvo!</>
-              ) : saving === 'tecnico' ? (
-                'Salvando...'
-              ) : (
-                <><Save className="w-4 h-4" /> Salvar Alteracao</>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Simulation */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Simulador de Comissao</h3>
-        <SimuladorComissao viralCPM={parseFloat(viralValue)} tecnicoCPM={parseFloat(tecnicoValue)} />
-      </div>
-    </div>
-  );
-}
-
-function SimuladorComissao({ viralCPM, tecnicoCPM }: { viralCPM: number; tecnicoCPM: number }) {
-  const [views, setViews] = useState('50000');
-  const [categoria, setCategoria] = useState<'viral' | 'tecnico'>('viral');
-
-  const viewsNum = parseInt(views) || 0;
-  const cpm = categoria === 'viral' ? viralCPM : tecnicoCPM;
-  const comissao = (viewsNum / 1000) * cpm;
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Visualizacoes</label>
-        <input
-          type="number"
-          min="0"
-          value={views}
-          onChange={e => setViews(e.target.value)}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-        <select
-          value={categoria}
-          onChange={e => setCategoria(e.target.value as 'viral' | 'tecnico')}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="viral">Viral (R$ {viralCPM.toFixed(2)}/CPM)</option>
-          <option value="tecnico">Tecnico (R$ {tecnicoCPM.toFixed(2)}/CPM)</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Comissao Estimada</label>
-        <div className="px-4 py-2.5 bg-green-50 border border-green-200 rounded-lg">
-          <span className="text-lg font-bold text-green-700">
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(comissao)}
-          </span>
-        </div>
-      </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
