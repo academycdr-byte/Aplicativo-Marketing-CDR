@@ -33,7 +33,7 @@ export async function exchangeCodeForToken(code: string): Promise<{ access_token
   // Since fetch doesn't support params in GET body, append to URL manually or use URLSearchParams
   // But wait, the standard way is query params for GET
   const tokenUrl = `${FB_API}/v21.0/oauth/access_token?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${META_APP_SECRET}&code=${code}`;
-  
+
   const tokenRes = await fetch(tokenUrl);
 
   if (!tokenRes.ok) {
@@ -73,7 +73,7 @@ export async function getInstagramProfile(accessToken: string): Promise<{
   // 1. Get User's Pages which have an Instagram Business Account connected
   const fields = 'name,instagram_business_account{id,username,profile_picture_url,followers_count}';
   const pagesUrl = `${FB_API}/v21.0/me/accounts?fields=${fields}&access_token=${accessToken}`;
-  
+
   const res = await fetch(pagesUrl);
 
   if (!res.ok) {
@@ -82,7 +82,7 @@ export async function getInstagramProfile(accessToken: string): Promise<{
   }
 
   const data = await res.json();
-  
+
   // Find the first page with a connected IG Business Account
   const pageWithIg = data.data?.find((p: any) => p.instagram_business_account);
 
@@ -135,10 +135,6 @@ export interface SyncedPost {
 
 export async function fetchInstagramMedia(accessToken: string): Promise<SyncedPost[]> {
   // First, we need the IG Business ID.
-  // Optimization: We could store it, but for now lets fetch it again or accept passed argument.
-  // To match signature, we assume accessToken allows us to find it.
-  
-  // 1. Get IG ID again (inefficient but safe)
   const profile = await getInstagramProfile(accessToken);
   const igUserId = profile.ig_user_id;
 
@@ -148,6 +144,7 @@ export async function fetchInstagramMedia(accessToken: string): Promise<SyncedPo
   const res = await fetch(url);
   if (!res.ok) {
     const err = await res.text();
+    console.error('Error fetching media list:', err);
     throw new Error(`Failed to fetch media: ${err}`);
   }
   const data = await res.json();
@@ -159,40 +156,74 @@ export async function fetchInstagramMedia(accessToken: string): Promise<SyncedPo
   for (const media of data.data as IGMedia[]) {
     // Get insights for each media
     let insights: IGInsights = {};
-    try {
-      const isVideo = ['VIDEO', 'REEL'].includes(media.media_type);
-      const metrics = isVideo
-        ? 'impressions,reach,shares,plays'
-        : 'impressions,reach,shares';
+    const isVideo = ['VIDEO', 'REEL'].includes(media.media_type);
 
-      const insightsRes = await fetch(
-        `${FB_API}/v21.0/${media.id}/insights?metric=${metrics}&access_token=${accessToken}`
+    // Strategy: Fetch "safe" metrics first (Reach/Impressions)
+    // 'shares' and 'plays' can sometimes cause errors depending on account status or media age
+
+    try {
+      // 1. Basic Views Metrics
+      const basicMetric = isVideo ? 'reach,plays' : 'reach,impressions';
+      const basicRes = await fetch(
+        `${FB_API}/v21.0/${media.id}/insights?metric=${basicMetric}&access_token=${accessToken}`
       );
-      if (insightsRes.ok) {
-        const insightsData = await insightsRes.json();
-        if (insightsData.data) {
-          for (const metric of insightsData.data) {
+
+      if (basicRes.ok) {
+        const basicData = await basicRes.json();
+        if (basicData.data) {
+          for (const metric of basicData.data) {
             insights[metric.name as keyof IGInsights] = metric.values?.[0]?.value || 0;
           }
         }
+      } else {
+        // Fallback: Try just 'reach' if the combo failed
+        const fallbackRes = await fetch(
+          `${FB_API}/v21.0/${media.id}/insights?metric=reach&access_token=${accessToken}`
+        );
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          if (fallbackData.data) {
+            insights.reach = fallbackData.data[0]?.values?.[0]?.value || 0;
+          }
+        } else {
+          console.warn(`Failed to fetch basic metrics for ${media.id}:`, await basicRes.text());
+        }
       }
-    } catch {
-      // Insights may not be available for all media types
+
+      // 2. Engagement Metrics (Shares) - Attempt separately
+      try {
+        // Shares often fail for older posts or specific types
+        const shareRes = await fetch(
+          `${FB_API}/v21.0/${media.id}/insights?metric=shares&access_token=${accessToken}`
+        );
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          if (shareData.data) {
+            insights.shares = shareData.data[0]?.values?.[0]?.value || 0;
+          }
+        }
+      } catch (e) {
+        // Ignore share errors
+        console.warn(`Failed to fetch shares for ${media.id}`);
+      }
+
+    } catch (error) {
+      console.error(`Unexpected error fetching insights for ${media.id}:`, error);
     }
 
-    const isReel = media.media_type === 'REEL' || media.media_type === 'VIDEO';
     const views = insights.plays || insights.impressions || insights.reach || 0;
+    const shares = insights.shares || 0;
 
     posts.push({
       external_id: media.id,
       titulo: (media.caption || '').slice(0, 200) || `Post ${media.media_type}`,
       url: media.permalink || '',
       thumbnail_url: media.thumbnail_url || media.media_url || '',
-      categoria: isReel ? 'viral' : 'tecnico',
+      categoria: isVideo ? 'viral' : 'tecnico',
       visualizacoes: views,
       curtidas: media.like_count || 0,
       comentarios: media.comments_count || 0,
-      compartilhamentos: insights.shares || 0,
+      compartilhamentos: shares,
       data_postagem: media.timestamp.split('T')[0],
     });
   }
