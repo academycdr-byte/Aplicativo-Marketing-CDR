@@ -10,10 +10,9 @@ import { useTheme } from '@/components/ThemeProvider';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface ConfiguracaoCPM {
-  id?: number;
-  plataforma: string;
+  id: number;
   categoria: string;
-  valor_cpm: number;
+  valor_por_cpm: number;
 }
 
 export default function ConfiguracoesPage() {
@@ -21,10 +20,9 @@ export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   // Simulator
-  const [simPlataforma, setSimPlataforma] = useState('instagram');
   const [simCategoria, setSimCategoria] = useState('viral');
   const [simViews, setSimViews] = useState(10000);
 
@@ -36,35 +34,36 @@ export default function ConfiguracoesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const updateConfig = (plataforma: string, categoria: string, valor_cpm: number) => {
-    setConfigs(prev => {
-      const idx = prev.findIndex(c => c.plataforma === plataforma && c.categoria === categoria);
-      if (idx >= 0) {
-        const n = [...prev]; n[idx] = { ...n[idx], valor_cpm }; return n;
-      }
-      return [...prev, { plataforma, categoria, valor_cpm }];
-    });
+  const getConfigValue = (categoria: string) => {
+    return configs.find(c => c.categoria === categoria)?.valor_por_cpm || 0;
   };
 
-  const getConfigValue = (plataforma: string, categoria: string) => {
-    return configs.find(c => c.plataforma === plataforma && c.categoria === categoria)?.valor_cpm || 0;
+  const updateLocalConfig = (categoria: string, valor_por_cpm: number) => {
+    setConfigs(prev => prev.map(c => c.categoria === categoria ? { ...c, valor_por_cpm } : c));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/configuracoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configs }) });
-      if (res.ok) showToast('success', 'Configurações salvas!');
-      else showToast('error', 'Erro ao salvar');
-    } catch { showToast('error', 'Erro ao salvar'); }
+      let success = true;
+      for (const config of configs) {
+        const res = await fetch('/api/configuracoes', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoria: config.categoria, valor_por_cpm: config.valor_por_cpm }),
+        });
+        if (!res.ok) success = false;
+      }
+      if (success) showToast('success', 'Configurações salvas!');
+      else showToast('error', 'Erro ao salvar algumas configurações');
+    } catch {
+      showToast('error', 'Erro ao salvar');
+    }
     setSaving(false);
   };
 
-  const simCPM = getConfigValue(simPlataforma, simCategoria);
+  const simCPM = getConfigValue(simCategoria);
   const simComissao = (simViews / 1000) * simCPM;
-
-  const platforms = ['instagram', 'tiktok'];
-  const categories = ['viral', 'tecnico'];
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -88,50 +87,38 @@ export default function ConfiguracoesPage() {
               <DollarSign className="w-5 h-5" style={{ color: 'var(--accent)' }} />
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Valores de CPM</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {platforms.map(plat => (
-                <div key={plat} className="card p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Badge variant={plat === 'instagram' ? 'instagram' : 'tiktok'}>
-                      {plat === 'instagram' ? 'Instagram' : 'TikTok'}
-                    </Badge>
+            <div className="card p-6">
+              <div className="space-y-6">
+                {configs.map(config => (
+                  <div key={config.categoria}>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                        <Badge variant={config.categoria === 'viral' ? 'viral' : 'tecnico'}>
+                          {config.categoria === 'viral' ? '🔥 Viral' : '📐 Técnico'}
+                        </Badge>
+                      </label>
+                      <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                        {formatCurrency(config.valor_por_cpm)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range" min="0" max="100" step="0.5" value={config.valor_por_cpm}
+                        onChange={e => updateLocalConfig(config.categoria, parseFloat(e.target.value))}
+                        className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, var(--accent) ${config.valor_por_cpm}%, var(--bg-hover) ${config.valor_por_cpm}%)`,
+                        }}
+                      />
+                      <input
+                        type="number" min="0" step="0.5" value={config.valor_por_cpm}
+                        onChange={e => updateLocalConfig(config.categoria, parseFloat(e.target.value) || 0)}
+                        className="input text-center w-24"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-4">
-                    {categories.map(cat => {
-                      const value = getConfigValue(plat, cat);
-                      return (
-                        <div key={cat}>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                              <Badge variant={cat === 'viral' ? 'viral' : 'tecnico'} size="sm">
-                                {cat === 'viral' ? '🔥 Viral' : '📐 Técnico'}
-                              </Badge>
-                            </label>
-                            <span className="text-sm font-bold" style={{ color: 'var(--accent)' }}>
-                              {formatCurrency(value)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="range" min="0" max="100" step="0.5" value={value}
-                              onChange={e => updateConfig(plat, cat, parseFloat(e.target.value))}
-                              className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
-                              style={{
-                                background: `linear-gradient(to right, var(--accent) ${value}%, var(--bg-hover) ${value}%)`,
-                              }}
-                            />
-                            <input
-                              type="number" min="0" step="0.5" value={value}
-                              onChange={e => updateConfig(plat, cat, parseFloat(e.target.value) || 0)}
-                              className="input text-center w-20"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
 
@@ -142,14 +129,7 @@ export default function ConfiguracoesPage() {
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Simulador de Comissão</h2>
             </div>
             <div className="card p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Plataforma</label>
-                  <select className="input" value={simPlataforma} onChange={e => setSimPlataforma(e.target.value)}>
-                    <option value="instagram">Instagram</option>
-                    <option value="tiktok">TikTok</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Categoria</label>
                   <select className="input" value={simCategoria} onChange={e => setSimCategoria(e.target.value)}>
