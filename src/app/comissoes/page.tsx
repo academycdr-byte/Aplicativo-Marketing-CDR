@@ -13,7 +13,8 @@ import { formatCurrency, formatMonth, formatNumber, getCurrentMonth, cn } from '
 
 interface Comissao {
   id: number; colaborador_id: number; colaborador_nome: string; postagem_id: number; postagem_titulo: string;
-  visualizacoes: number; categoria: string; cpm_valor: number; valor_comissao: number; mes_referencia: string; pago: number;
+  postagem_visualizacoes: number; postagem_categoria: string; valor: number; mes_referencia: string; pago: boolean;
+  conta_plataforma: string;
 }
 
 export default function ComissoesPage() {
@@ -36,9 +37,9 @@ export default function ComissoesPage() {
   const calcularComissoes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mes: mesAtual }) });
+      const res = await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calcular', mes: mesAtual }) });
       const data = await res.json();
-      if (res.ok) { showToast('success', `${data.total_calculadas} comissões calculadas!`); fetchComissoes(); }
+      if (res.ok) { showToast('success', `${Array.isArray(data) ? data.length : 0} comissões calculadas!`); fetchComissoes(); }
       else showToast('error', data.error || 'Erro ao calcular');
     } catch { showToast('error', 'Erro ao calcular comissões'); }
     setLoading(false);
@@ -46,7 +47,8 @@ export default function ComissoesPage() {
 
   const togglePago = async (comissao: Comissao) => {
     try {
-      await fetch('/api/comissoes', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: comissao.id, pago: comissao.pago ? 0 : 1 }) });
+      const action = comissao.pago ? 'marcar_nao_pago' : 'marcar_pago';
+      await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id: comissao.id }) });
       showToast('success', comissao.pago ? 'Marcada como pendente' : 'Marcada como paga');
       fetchComissoes();
     } catch { showToast('error', 'Erro ao atualizar status'); }
@@ -55,7 +57,7 @@ export default function ComissoesPage() {
   const pagarTodas = async (colaboradorId: number) => {
     const pendentes = comissoes.filter(c => c.colaborador_id === colaboradorId && !c.pago);
     for (const c of pendentes) {
-      await fetch('/api/comissoes', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, pago: 1 }) });
+      await fetch('/api/comissoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'marcar_pago', id: c.id }) });
     }
     showToast('success', `${pendentes.length} comissões marcadas como pagas`);
     fetchComissoes();
@@ -64,8 +66,8 @@ export default function ComissoesPage() {
   useEffect(() => { fetchComissoes(); }, [mesAtual]);
 
   const totais = useMemo(() => {
-    const total = comissoes.reduce((s, c) => s + c.valor_comissao, 0);
-    const pagas = comissoes.reduce((s, c) => s + (c.pago ? c.valor_comissao : 0), 0);
+    const total = comissoes.reduce((s, c) => s + (c.valor || 0), 0);
+    const pagas = comissoes.reduce((s, c) => s + (c.pago ? (c.valor || 0) : 0), 0);
     const pendentes = total - pagas;
     return { total, pagas, pendentes, count: comissoes.length };
   }, [comissoes]);
@@ -77,8 +79,8 @@ export default function ComissoesPage() {
       if (!map.has(c.colaborador_id)) map.set(c.colaborador_id, { nome: c.colaborador_nome, comissoes: [], total: 0, pagas: 0 });
       const grp = map.get(c.colaborador_id)!;
       grp.comissoes.push(c);
-      grp.total += c.valor_comissao;
-      if (c.pago) grp.pagas += c.valor_comissao;
+      grp.total += (c.valor || 0);
+      if (c.pago) grp.pagas += (c.valor || 0);
     });
     let result = Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
     if (search) result = result.filter(([, g]) => g.nome.toLowerCase().includes(search.toLowerCase()));
@@ -184,14 +186,14 @@ export default function ComissoesPage() {
                             {c.postagem_titulo}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant={c.categoria === 'viral' ? 'viral' : 'tecnico'} size="sm">{c.categoria === 'viral' ? 'Viral' : 'Técnico'}</Badge>
+                            <Badge variant={c.postagem_categoria === 'viral' ? 'viral' : 'tecnico'} size="sm">{c.postagem_categoria === 'viral' ? 'Viral' : 'Técnico'}</Badge>
                             <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {formatNumber(c.visualizacoes)} views · CPM {formatCurrency(c.cpm_valor)}
+                              {formatNumber(c.postagem_visualizacoes)} views
                             </span>
                           </div>
                         </div>
                         <span className="text-sm font-bold shrink-0" style={{ color: c.pago ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
-                          {formatCurrency(c.valor_comissao)}
+                          {formatCurrency(c.valor)}
                         </span>
                       </div>
                     ))}
