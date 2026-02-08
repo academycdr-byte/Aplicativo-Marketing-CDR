@@ -378,6 +378,31 @@ export async function getDashboardStats(inicio?: string, fim?: string): Promise<
      ORDER BY quantidade DESC`
   );
 
+  // Commissions per platform (via postagem → conta)
+  const comDateCondition = (inicio || fim)
+    ? `AND ${inicio ? `com.mes_referencia >= '${inicio.substring(0, 7)}'` : '1=1'} AND ${fim ? `com.mes_referencia <= '${fim.substring(0, 7)}'` : '1=1'}`
+    : '';
+  const comissoesPorPlataforma = await prisma.$queryRawUnsafe<{ plataforma: string; valor: number; quantidade: bigint }[]>(
+    `SELECT cs.plataforma, COALESCE(SUM(com.valor), 0)::float as valor, COUNT(com.id)::bigint as quantidade
+     FROM comissoes com
+     JOIN postagens p ON com.postagem_id = p.id
+     JOIN contas_sociais cs ON p.conta_id = cs.id
+     WHERE 1=1 ${comDateCondition}
+     GROUP BY cs.plataforma
+     ORDER BY valor DESC`
+  );
+
+  // Commissions per profile (via postagem → conta)
+  const comissoesPorPerfilConta = await prisma.$queryRawUnsafe<{ nome_perfil: string; username: string; plataforma: string; valor: number; quantidade: bigint }[]>(
+    `SELECT cs.nome_perfil, cs.username, cs.plataforma, COALESCE(SUM(com.valor), 0)::float as valor, COUNT(com.id)::bigint as quantidade
+     FROM comissoes com
+     JOIN postagens p ON com.postagem_id = p.id
+     JOIN contas_sociais cs ON p.conta_id = cs.id
+     WHERE 1=1 ${comDateCondition}
+     GROUP BY cs.id, cs.nome_perfil, cs.username, cs.plataforma
+     ORDER BY valor DESC`
+  );
+
   return {
     total_visualizacoes: totalVisualizacoes._sum.visualizacoes || 0,
     total_comissoes: totalComissoes._sum.valor || 0,
@@ -391,5 +416,7 @@ export async function getDashboardStats(inicio?: string, fim?: string): Promise<
     top_postagens: topPostagens,
     postagens_por_plataforma: postagensPorPlataforma.map((r) => ({ plataforma: r.plataforma, quantidade: Number(r.quantidade), visualizacoes: Number(r.visualizacoes) })),
     postagens_por_perfil: postagensPorPerfil.map((r) => ({ nome_perfil: r.nome_perfil, username: r.username, plataforma: r.plataforma, quantidade: Number(r.quantidade), visualizacoes: Number(r.visualizacoes) })),
+    comissoes_por_plataforma: comissoesPorPlataforma.map((r) => ({ plataforma: r.plataforma, valor: r.valor, quantidade: Number(r.quantidade) })),
+    comissoes_por_perfil: comissoesPorPerfilConta.map((r) => ({ nome_perfil: r.nome_perfil, username: r.username, plataforma: r.plataforma, valor: r.valor, quantidade: Number(r.quantidade) })),
   };
 }

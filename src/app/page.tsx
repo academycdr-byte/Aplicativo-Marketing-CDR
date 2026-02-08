@@ -29,6 +29,8 @@ interface DashboardData {
   }[];
   postagens_por_plataforma: { plataforma: string; quantidade: number; visualizacoes: number }[];
   postagens_por_perfil: { nome_perfil: string; username: string; plataforma: string; quantidade: number; visualizacoes: number }[];
+  comissoes_por_plataforma: { plataforma: string; valor: number; quantidade: number }[];
+  comissoes_por_perfil: { nome_perfil: string; username: string; plataforma: string; valor: number; quantidade: number }[];
 }
 
 type Preset = '7d' | '30d' | '90d' | 'year' | 'all';
@@ -424,6 +426,99 @@ export default function Dashboard() {
           ) : (
             <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
               Nenhum perfil conectado
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Commissions by Platform & Profile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Commissions by Platform */}
+        <div className="card p-5 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <DollarSign className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Comissões por Rede</h3>
+          </div>
+          {(data.comissoes_por_plataforma || []).length > 0 ? (
+            <div className="space-y-4">
+              {(data.comissoes_por_plataforma || []).map((item) => {
+                const maxVal = Math.max(...(data.comissoes_por_plataforma || []).map(p => p.valor), 1);
+                const pct = (item.valor / maxVal) * 100;
+                const isInsta = item.plataforma?.toLowerCase() === 'instagram';
+                return (
+                  <div key={item.plataforma} className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                        background: isInsta ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : '#010101',
+                      }}>
+                        {isInsta
+                          ? <Instagram className="w-4.5 h-4.5 text-white" />
+                          : <Music2 className="w-4.5 h-4.5 text-white" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>{item.plataforma}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{item.quantidade} comissões</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(item.valor)}</p>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-full h-1.5" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: isInsta ? '#E1306C' : 'var(--accent)' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
+              Nenhuma comissão registrada
+            </div>
+          )}
+        </div>
+
+        {/* Commissions by Profile */}
+        <div className="card p-5 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <DollarSign className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Comissões por Perfil</h3>
+          </div>
+          {(data.comissoes_por_perfil || []).length > 0 ? (
+            <div className="space-y-3 stagger-children">
+              {(data.comissoes_por_perfil || []).map((item, idx) => {
+                const maxVal = Math.max(...(data.comissoes_por_perfil || []).map(p => p.valor), 1);
+                const pct = (item.valor / maxVal) * 100;
+                const isInsta = item.plataforma?.toLowerCase() === 'instagram';
+                return (
+                  <div key={idx} className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{
+                        background: isInsta ? 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)' : '#010101',
+                      }}>
+                        {isInsta
+                          ? <Instagram className="w-4 h-4 text-white" />
+                          : <Music2 className="w-4 h-4 text-white" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.nome_perfil || item.username}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>@{item.username} · {item.quantidade} comissões</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(item.valor)}</p>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-full h-1" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="h-1 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: isInsta ? '#E1306C' : 'var(--accent)' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32" style={{ color: 'var(--text-tertiary)' }}>
+              Nenhum perfil com comissões
             </div>
           )}
         </div>
