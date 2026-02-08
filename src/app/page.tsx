@@ -543,8 +543,8 @@ export default function Dashboard() {
               style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
             >
               <option value="all">Todas as redes</option>
-              {[...new Set((data.top_postagens || []).map(p => p.conta_plataforma))].map(plat => (
-                <option key={plat} value={plat}>{plat}</option>
+              {(data.postagens_por_plataforma || []).map(p => (
+                <option key={p.plataforma} value={p.plataforma}>{p.plataforma}</option>
               ))}
             </select>
             <select
@@ -554,10 +554,10 @@ export default function Dashboard() {
               style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
             >
               <option value="all">Todos os perfis</option>
-              {[...new Set((data.top_postagens || [])
-                .filter(p => topFilterPlataforma === 'all' || p.conta_plataforma === topFilterPlataforma)
-                .map(p => p.conta_username))].map(usr => (
-                  <option key={usr} value={usr}>@{usr}</option>
+              {(data.postagens_por_perfil || [])
+                .filter(p => topFilterPlataforma === 'all' || p.plataforma === topFilterPlataforma)
+                .map(p => (
+                  <option key={p.username} value={p.username}>@{p.username}</option>
                 ))}
             </select>
             {(topFilterPlataforma !== 'all' || topFilterPerfil !== 'all') && (
