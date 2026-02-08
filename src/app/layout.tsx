@@ -10,6 +10,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
+      <head>
+        <meta name="tiktok-developers-site-verification" content="aNlteyUYSLiUyI1Z0xn6qtzm6cgx872B" />
+      </head>
       <body>
         <div className="flex min-h-screen">
           <Sidebar />
