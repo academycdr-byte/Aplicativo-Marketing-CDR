@@ -344,7 +344,7 @@ export async function getDashboardStats(inicio?: string, fim?: string): Promise<
       colaborador: { select: { nome: true } },
     },
     orderBy: { visualizacoes: 'desc' },
-    take: 10,
+    take: 50,
   });
 
   const topPostagens = topPostagensRaw.map((p) => ({
