@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { FileVideo, Eye, Heart, MessageCircle, Share, Search, LayoutGrid, List, Pencil, Trash2, Instagram, Music2 } from 'lucide-react';
+import { FileVideo, Eye, Heart, MessageCircle, Share, Search, LayoutGrid, List, Pencil, Trash2, Instagram, Music2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import Modal from '@/components/Modal';
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
@@ -34,7 +34,8 @@ export default function PostagensPage() {
   const [filterPlataforma, setFilterPlataforma] = useState<string>('');
   const [filterPerfil, setFilterPerfil] = useState<string>('');
   const [filterCategoria, setFilterCategoria] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'recent' | 'views'>('recent');
+  const [sortColumn, setSortColumn] = useState<string>('data_publicacao');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [form, setForm] = useState({ titulo: '', url: '', visualizacoes: 0, curtidas: 0, comentarios: 0, compartilhamentos: 0, categoria: 'viral' as 'viral' | 'tecnico', data_publicacao: '', conta_social_id: '', colaborador_id: '' });
   const { showToast } = useToast();
 
@@ -82,6 +83,17 @@ export default function PostagensPage() {
     catch { showToast('error', 'Erro ao excluir'); }
   };
 
+  const engRate = (p: Postagem) => p.visualizacoes > 0 ? ((p.curtidas || 0) + (p.comentarios || 0) + (p.compartilhamentos || 0)) / p.visualizacoes * 100 : 0;
+
+  const handleSort = (col: string) => {
+    if (sortColumn === col) {
+      setSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortColumn(col);
+      setSortDir('desc');
+    }
+  };
+
   const filtered = useMemo(() => {
     let result = postagens;
     if (search) {
@@ -91,9 +103,21 @@ export default function PostagensPage() {
     if (filterPlataforma) result = result.filter(p => p.conta_plataforma === filterPlataforma);
     if (filterPerfil) result = result.filter(p => String(p.conta_id) === filterPerfil);
     if (filterCategoria) result = result.filter(p => p.categoria === filterCategoria);
-    result = [...result].sort((a, b) => sortBy === 'views' ? b.visualizacoes - a.visualizacoes : new Date(b.data_publicacao).getTime() - new Date(a.data_publicacao).getTime());
+    result = [...result].sort((a, b) => {
+      let valA: number, valB: number;
+      switch (sortColumn) {
+        case 'visualizacoes': valA = a.visualizacoes; valB = b.visualizacoes; break;
+        case 'curtidas': valA = a.curtidas; valB = b.curtidas; break;
+        case 'comentarios': valA = a.comentarios; valB = b.comentarios; break;
+        case 'compartilhamentos': valA = a.compartilhamentos; valB = b.compartilhamentos; break;
+        case 'engajamento': valA = engRate(a); valB = engRate(b); break;
+        case 'data_publicacao':
+        default: valA = new Date(a.data_publicacao).getTime(); valB = new Date(b.data_publicacao).getTime(); break;
+      }
+      return sortDir === 'desc' ? valB - valA : valA - valB;
+    });
     return result;
-  }, [postagens, search, filterPlataforma, filterPerfil, filterCategoria, sortBy]);
+  }, [postagens, search, filterPlataforma, filterPerfil, filterCategoria, sortColumn, sortDir]);
 
   const engagementRate = (p: Postagem) => p.visualizacoes > 0 ? (((p.curtidas || 0) + (p.comentarios || 0) + (p.compartilhamentos || 0)) / p.visualizacoes * 100).toFixed(1) : '0.0';
 
@@ -131,9 +155,11 @@ export default function PostagensPage() {
           <option value="viral">Viral</option>
           <option value="tecnico">Técnico</option>
         </select>
-        <select className="input" style={{ width: 'auto' }} value={sortBy} onChange={e => setSortBy(e.target.value as 'recent' | 'views')}>
+        <select className="input" style={{ width: 'auto' }} value={sortColumn === 'data_publicacao' ? 'recent' : sortColumn} onChange={e => { const v = e.target.value; if (v === 'recent') { setSortColumn('data_publicacao'); setSortDir('desc'); } else { setSortColumn(v); setSortDir('desc'); } }}>
           <option value="recent">Mais recentes</option>
-          <option value="views">Mais views</option>
+          <option value="visualizacoes">Mais views</option>
+          <option value="curtidas">Mais curtidas</option>
+          <option value="engajamento">Maior engajamento</option>
         </select>
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
           <button onClick={() => setViewMode('grid')} className="p-2 rounded-md transition-all"
@@ -221,8 +247,33 @@ export default function PostagensPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Título', 'Plataforma', 'Cat.', 'Views', 'Curtidas', 'Com.', 'Comp.', 'Eng.', 'Colaborador', 'Data', ''].map((h, i) => (
-                    <th key={i} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                  {[
+                    { label: 'Título', key: '' },
+                    { label: 'Plataforma', key: '' },
+                    { label: 'Cat.', key: '' },
+                    { label: 'Views', key: 'visualizacoes' },
+                    { label: 'Curtidas', key: 'curtidas' },
+                    { label: 'Com.', key: 'comentarios' },
+                    { label: 'Comp.', key: 'compartilhamentos' },
+                    { label: 'Eng.', key: 'engajamento' },
+                    { label: 'Colaborador', key: '' },
+                    { label: 'Data', key: 'data_publicacao' },
+                    { label: '', key: '' },
+                  ].map((h, i) => (
+                    <th key={i}
+                      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${h.key ? 'cursor-pointer select-none' : ''}`}
+                      style={{ color: sortColumn === h.key ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                      onClick={() => h.key && handleSort(h.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {h.label}
+                        {h.key && (
+                          sortColumn === h.key
+                            ? (sortDir === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)
+                            : <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </span>
+                    </th>
                   ))}
                 </tr>
               </thead>
