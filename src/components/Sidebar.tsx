@@ -54,7 +54,7 @@ export default function Sidebar() {
             <img
               src="/logo.png"
               alt="CDR Logo"
-              className="w-10 h-10 rounded-xl object-contain shrink-0"
+              className="w-14 h-14 rounded-xl object-contain shrink-0"
             />
             {!collapsed && (
               <div className="min-w-0">
