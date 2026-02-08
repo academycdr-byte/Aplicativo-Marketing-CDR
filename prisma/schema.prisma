@@ -35,6 +35,11 @@ model ContaSocial {
   ig_user_id        String?
   access_token      String?
   token_expires_at  DateTime?
+
+  // TikTok API integration
+  tiktok_user_id    String?
+  refresh_token     String?
+
   auto_sync         Boolean    @default(false)
   last_sync_at      DateTime?
 
